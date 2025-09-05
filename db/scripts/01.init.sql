@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS players (
     login varchar(256) NOT NULL,
     nickname varchar(256) NOT NULL,
     password VARCHAR(60) NOT NULL,
+    room_id INTEGER,
     wins INTEGER NOT NULL DEFAULT 0,
     losses INTEGER NOT NULL DEFAULT 0,
     draws INTEGER NOT NULL DEFAULT 0,
@@ -20,18 +21,21 @@ CREATE SEQUENCE IF NOT EXISTS rooms_id_seq;
 CREATE TABLE IF NOT EXISTS rooms (
     id INTEGER NOT NULL DEFAULT nextval('rooms_id_seq'),
     host_id INTEGER NOT NULL,
-    opponent_id INTEGER,
+    guest_id INTEGER,
     game_id INTEGER, 
     title VARCHAR(55) NOT NULL,
-    info VARCHAR(1024),
+    description VARCHAR(1024),
     status INTEGER NOT NULL DEFAULT 0,
     
     CONSTRAINT rooms_pk PRIMARY KEY(id),
     CONSTRAINT rooms_fk_host FOREIGN KEY (host_id) REFERENCES players(id),
-    CONSTRAINT rooms_fk_opponent FOREIGN KEY (opponent_id) REFERENCES players(id)
+    CONSTRAINT rooms_fk_guest FOREIGN KEY (guest_id) REFERENCES players(id)
 );
 ALTER SEQUENCE rooms_id_seq
 OWNED BY rooms.id;
+
+ALTER TABLE players DROP CONSTRAINT IF EXISTS players_fk_room;
+ALTER TABLE players ADD CONSTRAINT players_fk_room FOREIGN KEY (room_id) REFERENCES rooms(id);
 
 CREATE SEQUENCE IF NOT EXISTS games_id_seq;
 CREATE TABLE IF NOT EXISTS games (
