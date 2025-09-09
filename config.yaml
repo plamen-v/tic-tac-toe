@@ -1,0 +1,11 @@
+appName: "My-App"
+secret: "1234567890"
+server:
+  host: localhost
+  port: 5005
+database:
+  host: localhost
+  user: ${DB_USER}
+  password: ${DB_PASSWORD}
+  database: ${DB_DATABASE}
+  port: ${DB_LOCAL_PORT}
