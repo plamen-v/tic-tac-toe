@@ -1,4 +1,6 @@
 appName: "My-App"
+appMode: dev
+logLevel: debug
 secret: "1234567890"
 server:
   host: localhost

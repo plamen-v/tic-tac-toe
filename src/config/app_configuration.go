@@ -1,8 +1,8 @@
 package config
 
 import (
+	"errors"
 	"flag"
-	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -10,14 +10,22 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type (
+	AppMode  string
+	LogLevel string
+)
+
+const (
+	ProductionAppMode  AppMode  = "prod"
+	DevelopmentAppMode AppMode  = "dev"
+	DebugLogLevel      LogLevel = "debug"
+	InfoLogLevel       LogLevel = "info"
+)
+
 var (
 	configPath string
 	config     AppConfiguration
 	once       sync.Once
-)
-
-const (
-	APP_NAME string = "tic-tac-toe"
 )
 
 func init() {
@@ -30,14 +38,23 @@ func init() {
 
 type AppConfiguration struct {
 	AppName  string                `yaml:"appName,omitempty"`
+	AppMode  AppMode               `yaml:"appMode,omitempty"`
+	LogLevel LogLevel              `yaml:"logLevel,omitempty"`
 	Secret   string                `yaml:"secret,omitempty"`
 	Server   ServerConfiguration   `yaml:"server"`
 	Database DatabaseConfiguration `yaml:"database"`
 }
 
 func (c *AppConfiguration) SetDefaults() {
-	if len(c.AppName) == 0 {
-		c.AppName = APP_NAME
+	if len(c.AppMode) == 0 {
+		c.AppMode = ProductionAppMode
+	}
+	if len(c.LogLevel) == 0 {
+		if c.AppMode == DevelopmentAppMode {
+			c.LogLevel = DebugLogLevel
+		} else {
+			c.LogLevel = InfoLogLevel
+		}
 	}
 
 	c.Server.SetDefaults()
@@ -46,38 +63,42 @@ func (c *AppConfiguration) SetDefaults() {
 
 // TODO!
 func (c *AppConfiguration) Validate() error {
+	if len(c.AppName) == 0 {
+		return errors.New("") //todo!
+	}
+
 	if len(c.Secret) == 0 {
-		return fmt.Errorf("todo")
+		return errors.New("") //todo!
 	}
 
 	if err := c.Server.Validate(); err != nil {
-		panic(err)
+		return errors.New("") //todo!
 	}
 
 	if err := c.Database.Validate(); err != nil {
-		panic(err)
+		return errors.New("") //todo!
 	}
 
 	return nil
 }
 
-func GetConfig() *AppConfiguration {
-	once.Do(func() { //TODO!
+func GetConfig() (*AppConfiguration, error) {
+	once.Do(func() {
 		data, err := os.ReadFile(configPath)
 		if err != nil {
 			panic(err)
 		}
 
-		err = yaml.NewDecoder(strings.NewReader(os.ExpandEnv(string(data)))).Decode(&config) // TODO! detail
+		err = yaml.NewDecoder(strings.NewReader(os.ExpandEnv(string(data)))).Decode(&config)
 		if err != nil {
 			panic(err)
 		}
 	})
 
-	config.SetDefaults() //TODO!
+	config.SetDefaults()
 	if err := config.Validate(); err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return &config
+	return &config, nil
 }

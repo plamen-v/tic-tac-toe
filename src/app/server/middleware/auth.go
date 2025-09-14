@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -9,22 +10,24 @@ import (
 
 const KEY_PLAYER_ID string = "KEY_PLAYER_ID"
 
-func AuthenticationMiddleware(authService auth.AuthenticationService) func(*gin.Context) {
+func Authentication(authService auth.AuthenticationService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-
 		tokenString := c.GetHeader(auth.AUTHORIZATION_HEADER)
 		tokenString = strings.TrimPrefix(tokenString, auth.AUTHORIZATION_HEADER_PREFIX)
-
 		jwtToken, err := authService.ValidateToken(tokenString)
 		if err != nil {
 			c.Error(err)
-			//TODO!
 			c.Abort()
 			return
 		}
-		//c.Set("token", jwtToken) //todo!
-		playerID, _ := jwtToken.Claims.GetIssuer()
-		c.Set(KEY_PLAYER_ID, playerID) //todo!
+
+		if claims, ok := jwtToken.Claims.(*auth.ExtendedClaims); ok {
+			c.Set(KEY_PLAYER_ID, claims.PlayerID)
+		} else {
+			_ = c.Error(fmt.Errorf("Invalid token"))
+			c.Abort()
+		}
+
 		c.Next()
 	}
 }

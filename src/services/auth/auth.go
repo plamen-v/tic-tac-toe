@@ -14,32 +14,50 @@ import (
 const (
 	AUTHORIZATION_HEADER        string = "Authorization"
 	AUTHORIZATION_HEADER_PREFIX string = "Bearer "
+	PLAYER_ID_CLAIM_KEY         string = "player_id"
 )
 
 type AuthenticationService interface {
 	CreateToken(player *models.Player) (string, error)
 	ValidateToken(token string) (*jwt.Token, error)
-	AuthenticatePlayer(string, string) (*models.Player, error)
+	Authenticate(string, string) (*models.Player, error)
 }
 
-func NewAuthenticationService(config *config.AppConfiguration, playerRepo repository.PlayerRepository) AuthenticationService {
+type ExtendedClaims struct {
+	PlayerID int64 `json:"player_id"`
+	jwt.RegisteredClaims
+}
+
+func (c ExtendedClaims) Validate() error {
+	if c.PlayerID <= 0 {
+		return fmt.Errorf("user_id cannot be empty") //todo!
+	}
+
+	// You can add more custom checks here todo!
+	return nil
+}
+
+func NewAuthenticationService(config *config.AppConfiguration, repo repository.Repository) AuthenticationService {
 	return &authenticationService{
-		config:     config,
-		playerRepo: playerRepo,
+		config: config,
+		repo:   repo,
 	}
 }
 
 type authenticationService struct {
-	config     *config.AppConfiguration
-	playerRepo repository.PlayerRepository
+	config *config.AppConfiguration
+	repo   repository.Repository
 }
 
 func (s *authenticationService) CreateToken(player *models.Player) (string, error) {
-	claims := jwt.MapClaims{
-		"sub": s.config.AppName, //TODO!
-		"iss": fmt.Sprintf("%d", player.ID),
-		"iat": time.Now().Unix(),
-		"exp": time.Now().Add(time.Hour).Unix(), //TODO!
+	claims := ExtendedClaims{
+		PlayerID: player.ID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   s.config.AppName,
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Second)), //todo! config
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer:    player.Login,
+		},
 	}
 
 	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -54,8 +72,8 @@ func (s *authenticationService) CreateToken(player *models.Player) (string, erro
 
 func (s *authenticationService) ValidateToken(tokenString string) (*jwt.Token, error) {
 	// Parse the token with the secret key
-	jwtToken, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return s.config.Secret, nil
+	jwtToken, err := jwt.ParseWithClaims(tokenString, &ExtendedClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(s.config.Secret), nil
 	})
 
 	if err != nil {
@@ -69,8 +87,8 @@ func (s *authenticationService) ValidateToken(tokenString string) (*jwt.Token, e
 	return jwtToken, nil
 }
 
-func (s *authenticationService) AuthenticatePlayer(login string, password string) (*models.Player, error) {
-	player, err := s.playerRepo.GetByLogin(login)
+func (s *authenticationService) Authenticate(login string, password string) (*models.Player, error) {
+	player, err := s.repo.Players().GetByLogin(login, nil) //todo! not found error
 	if err != nil {
 		return nil, err
 	}

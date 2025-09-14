@@ -1,17 +1,17 @@
-package v1
+package handlers
 
 import (
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/plamen-v/tic-tac-toe/src/models"
+	requests "github.com/plamen-v/tic-tac-toe/src/models/requests"
 	"github.com/plamen-v/tic-tac-toe/src/services/auth"
 )
 
 func LoginHandler(authService auth.AuthenticationService) func(*gin.Context) {
 	return func(c *gin.Context) {
-		var loginRequest models.LoginRequest
+		var loginRequest requests.LoginRequest
 		var err error
 		// Parse and bind JSON to struct
 		if err = c.BindJSON(&loginRequest); err != nil {
@@ -19,7 +19,7 @@ func LoginHandler(authService auth.AuthenticationService) func(*gin.Context) {
 			return
 		}
 
-		player, err := authService.AuthenticatePlayer(loginRequest.Login, loginRequest.Password)
+		player, err := authService.Authenticate(loginRequest.Login, loginRequest.Password)
 		if err != nil {
 			c.Error(err)
 			return

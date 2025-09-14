@@ -26,13 +26,15 @@ CREATE TABLE IF NOT EXISTS rooms (
     guest_id INTEGER,
     guest_ready BOOLEAN,
     game_id INTEGER, 
+    prev_game_id INTEGER, 
     title VARCHAR(55) NOT NULL,
     description VARCHAR(1024),
     status INTEGER NOT NULL DEFAULT 0,
     
     CONSTRAINT rooms_pk PRIMARY KEY(id),
     CONSTRAINT rooms_fk_host FOREIGN KEY (host_id) REFERENCES players(id),
-    CONSTRAINT rooms_fk_guest FOREIGN KEY (guest_id) REFERENCES players(id)
+    CONSTRAINT rooms_fk_guest FOREIGN KEY (guest_id) REFERENCES players(id),
+    UNIQUE(title)
 );
 ALTER SEQUENCE rooms_id_seq
 OWNED BY rooms.id;
@@ -74,3 +76,5 @@ ALTER TABLE players ADD CONSTRAINT players_fk_game FOREIGN KEY (game_id) REFEREN
 ALTER TABLE rooms DROP CONSTRAINT IF EXISTS rooms_fk_game;
 ALTER TABLE rooms ADD CONSTRAINT rooms_fk_game FOREIGN KEY (game_id) REFERENCES games(id);
 
+ALTER TABLE rooms DROP CONSTRAINT IF EXISTS rooms_fk_prev_game;
+ALTER TABLE rooms ADD CONSTRAINT rooms_fk_prev_game FOREIGN KEY (prev_game_id) REFERENCES games(id);
