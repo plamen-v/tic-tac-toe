@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/plamen-v/tic-tac-toe/src/models/errors"
+	"github.com/plamen-v/tic-tac-toe-models/models/errors"
 )
 
 func ErrorHandler() gin.HandlerFunc {
@@ -22,12 +22,12 @@ func ErrorHandler() gin.HandlerFunc {
 				errorMessage = coreError.Error()
 			case *errors.ValidationError:
 				statusCode = http.StatusBadRequest
-				errorCode = string(errors.InvalidInputErrorCode)
+				errorCode = string(errors.BadRequestErrorCode)
 				errorMessage = coreError.Error()
 			case *errors.AuthorizationError:
 				statusCode = http.StatusForbidden
 				errorCode = string(errors.UnauthorizedErrorCode)
-				errorMessage = "Access Denied"
+				errorMessage = errors.AuthorizationErrorMessage
 			case *errors.GenericError:
 				statusCode = http.StatusInternalServerError
 				errorCode = string(coreError.Code)

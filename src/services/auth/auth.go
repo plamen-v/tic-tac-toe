@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/plamen-v/tic-tac-toe-models/models"
 	"github.com/plamen-v/tic-tac-toe/src/config"
-	"github.com/plamen-v/tic-tac-toe/src/models"
 	"github.com/plamen-v/tic-tac-toe/src/services/repository"
 	"golang.org/x/crypto/bcrypt"
 )

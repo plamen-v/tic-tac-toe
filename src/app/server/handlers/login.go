@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	requests "github.com/plamen-v/tic-tac-toe/src/models/requests"
+	"github.com/plamen-v/tic-tac-toe-models/models/requests"
 	"github.com/plamen-v/tic-tac-toe/src/services/auth"
 )
 

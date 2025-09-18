@@ -22,14 +22,14 @@ CREATE SEQUENCE IF NOT EXISTS rooms_id_seq;
 CREATE TABLE IF NOT EXISTS rooms (
     id INTEGER NOT NULL DEFAULT nextval('rooms_id_seq'),
     host_id INTEGER NOT NULL,
-    host_ready BOOLEAN,
+    host_continue BOOLEAN NOT NULL DEFAULT false,
     guest_id INTEGER,
-    guest_ready BOOLEAN,
+    guest_continue BOOLEAN NOT NULL DEFAULT false,
     game_id INTEGER, 
     prev_game_id INTEGER, 
     title VARCHAR(55) NOT NULL,
     description VARCHAR(1024),
-    status INTEGER NOT NULL DEFAULT 0,
+    phase INTEGER NOT NULL DEFAULT 0,
     
     CONSTRAINT rooms_pk PRIMARY KEY(id),
     CONSTRAINT rooms_fk_host FOREIGN KEY (host_id) REFERENCES players(id),
@@ -45,27 +45,25 @@ ALTER TABLE players ADD CONSTRAINT players_fk_room FOREIGN KEY (room_id) REFEREN
 CREATE SEQUENCE IF NOT EXISTS games_id_seq;
 CREATE TABLE IF NOT EXISTS games (
     id INTEGER NOT NULL DEFAULT nextval('games_id_seq'),
-    player_1_id INTEGER NOT NULL,
-    
-    player_1_mark CHAR(1),
-    player_2_id INTEGER NOT NULL,
-    player_2_ready BOOLEAN,
-    player_2_mark CHAR(1),
-    current_player_id INTEGER,
-    board TEXT DEFAULT '         ',
-    status INTEGER NOT NULL DEFAULT 0,
+    host_id INTEGER NOT NULL,
+    host_mark CHAR(1) NOT NULL,
+    guest_id INTEGER NOT NULL,
+    guest_mark CHAR(1) NOT NULL,
+    current_player_id INTEGER NOT NULL,
+    board TEXT NOT NULL DEFAULT '         ',
     winner_id INTEGER,
     loser_id INTEGER,
+    phase INTEGER NOT NULL DEFAULT 0,
     
     CONSTRAINT games_pk PRIMARY KEY(id),
-    CONSTRAINT games_fk_player_1 FOREIGN KEY (player_1_id) REFERENCES players(id),
-    CONSTRAINT games_fk_player_2 FOREIGN KEY (player_2_id) REFERENCES players(id),
+    CONSTRAINT games_fk_host FOREIGN KEY (host_id) REFERENCES players(id),
+    CONSTRAINT games_fk_guest FOREIGN KEY (guest_id) REFERENCES players(id),
     CONSTRAINT games_fk_current_player FOREIGN KEY (current_player_id) REFERENCES players(id),
     CONSTRAINT games_fk_winner FOREIGN KEY (winner_id) REFERENCES players(id),
     CONSTRAINT games_fk_loser FOREIGN KEY (loser_id) REFERENCES players(id),
-    CHECK (player_1_mark IN ('X', 'O')),
-    CHECK (player_2_mark IN ('X', 'O')),
-    UNIQUE (id, player_1_id, player_2_id)
+    CHECK (host_mark IN ('X', 'O')),
+    CHECK (guest_mark IN ('X', 'O')),
+    UNIQUE (id, host_id, guest_id)
 );
 ALTER SEQUENCE games_id_seq
 OWNED BY games.id;

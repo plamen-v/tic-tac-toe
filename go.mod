@@ -2,6 +2,9 @@ module github.com/plamen-v/tic-tac-toe
 
 go 1.24.4
 
+require(
+	github.com/plamen-v/tic-tac-toe-models v0.1.1
+)
 require (
 	github.com/bytedance/sonic v1.14.0 // indirect
 	github.com/bytedance/sonic/loader v0.3.0 // indirect
@@ -35,3 +38,5 @@ require (
 	google.golang.org/protobuf v1.36.8 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/plamen-v/tic-tac-toe-models => ../tic-tac-toe-models
