@@ -21,7 +21,7 @@ type APIServer interface {
 	Stop(context.Context) error
 }
 
-type apiServer struct {
+type apiServerImpl struct {
 	config *config.AppConfiguration
 	logger logger.LoggerService
 	//ginEngine   *gin.Engine
@@ -31,7 +31,7 @@ type apiServer struct {
 }
 
 func NewAPI(config *config.AppConfiguration, logger logger.LoggerService, authenticationService auth.AuthenticationService, gameEngineService engine.GameEngineService) APIServer {
-	return &apiServer{
+	return &apiServerImpl{
 		config:                config,
 		logger:                logger,
 		authenticationService: authenticationService,
@@ -39,16 +39,16 @@ func NewAPI(config *config.AppConfiguration, logger logger.LoggerService, authen
 	}
 }
 
-func (s *apiServer) Start() error {
+func (s *apiServerImpl) Start() error {
 	s.initialize()
 	return s.server.ListenAndServe()
 }
 
-func (s *apiServer) Stop(ctx context.Context) error {
+func (s *apiServerImpl) Stop(ctx context.Context) error {
 	return s.server.Shutdown(ctx)
 }
 
-func (s *apiServer) initialize() {
+func (s *apiServerImpl) initialize() {
 	setServerMode(s.config.AppMode)
 	engine := gin.Default()
 	s.setEndpoints(engine)
@@ -60,7 +60,7 @@ func (s *apiServer) initialize() {
 	}
 }
 
-func (s *apiServer) setEndpoints(engine *gin.Engine) {
+func (s *apiServerImpl) setEndpoints(engine *gin.Engine) {
 	engine.Use(
 		middleware.Logger(s.logger),
 		middleware.ErrorHandler(),
@@ -81,16 +81,11 @@ func (s *apiServer) setEndpoints(engine *gin.Engine) {
 	game.GET("/rooms", handlers.GetOpenRoomsHandler(s.gameEngineService))
 	game.POST("/rooms", handlers.CreateRoomHandler(s.gameEngineService))
 	game.GET("rooms/:roomId", handlers.GetRoomStateHandler(s.gameEngineService))
-
-	game.DELETE("rooms/:roomId/host", handlers.HostLeaveHandler(s.gameEngineService))
-
-	game.POST("rooms/:roomId/guest", handlers.RegisterGuestHandler(s.gameEngineService))
-	game.DELETE("rooms/:roomId/guest", handlers.GuestLeaveHandler(s.gameEngineService))
-
-	game.POST("rooms/:roomId/games", handlers.CreateGameHandler(s.gameEngineService))
-	game.GET("rooms/:roomId/games/:gameId", handlers.GetGameStateHandler(s.gameEngineService))
-
-	game.POST("rooms/:roomId/games/:gameId/board/:position", handlers.SetMarkHandler(s.gameEngineService))
+	game.POST("rooms/:roomId/player", handlers.PlayerJoinRoomHandler(s.gameEngineService))
+	game.DELETE("rooms/:roomId/player", handlers.PlayerLeaveRoomHandler(s.gameEngineService))
+	game.POST("rooms/:roomId/game", handlers.CreateGameHandler(s.gameEngineService))
+	game.GET("rooms/:roomId/game/", handlers.GetGameStateHandler(s.gameEngineService))
+	game.POST("rooms/:roomId/game/board/:position", handlers.MakeMoveHandler(s.gameEngineService))
 }
 
 func setServerMode(mode config.AppMode) {

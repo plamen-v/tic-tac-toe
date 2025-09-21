@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/plamen-v/tic-tac-toe-models/models/errors"
+	"github.com/plamen-v/tic-tac-toe-models/models"
 )
 
 func ErrorHandler() gin.HandlerFunc {
@@ -16,29 +16,35 @@ func ErrorHandler() gin.HandlerFunc {
 			var statusCode int
 			var errorCode, errorMessage string
 			switch coreError := err.(type) {
-			case *errors.NotFoundError:
+			case *models.NotFoundError:
 				statusCode = http.StatusNotFound
-				errorCode = string(errors.NotFoundErrorCode)
+				errorCode = string(models.NotFoundErrorCode)
 				errorMessage = coreError.Error()
-			case *errors.ValidationError:
+			case *models.ValidationError:
 				statusCode = http.StatusBadRequest
-				errorCode = string(errors.BadRequestErrorCode)
+				errorCode = string(models.BadRequestErrorCode)
 				errorMessage = coreError.Error()
-			case *errors.AuthorizationError:
+			case *models.AuthorizationError:
 				statusCode = http.StatusForbidden
-				errorCode = string(errors.UnauthorizedErrorCode)
-				errorMessage = errors.AuthorizationErrorMessage
-			case *errors.GenericError:
+				errorCode = string(models.UnauthorizedErrorCode)
+				errorMessage = models.AuthorizationErrorMessage
+			case *models.GenericError:
 				statusCode = http.StatusInternalServerError
 				errorCode = string(coreError.Code)
-				errorMessage = errors.InternalServerErrorMessage
+				errorMessage = models.InternalServerErrorMessage
 			default:
 				statusCode = http.StatusInternalServerError
-				errorCode = string(errors.InternalServerErrorErrorCode)
-				errorMessage = errors.InternalServerErrorMessage
+				errorCode = string(models.InternalServerErrorErrorCode)
+				errorMessage = models.InternalServerErrorMessage
 			}
 
-			c.JSON(statusCode, errors.NewErrorMessage(errorCode, errorMessage))
+			response := models.Response{
+				StatusCode: statusCode,
+				Payload:    gin.H{},
+				Error:      models.NewErrorMessage(errorCode, errorMessage),
+			}
+
+			c.JSON(response.StatusCode, response)
 		}
 	}
 }

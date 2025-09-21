@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -14,7 +16,6 @@ import (
 	"github.com/plamen-v/tic-tac-toe/src/services/auth"
 	"github.com/plamen-v/tic-tac-toe/src/services/engine"
 	"github.com/plamen-v/tic-tac-toe/src/services/logger"
-	"github.com/plamen-v/tic-tac-toe/src/services/repository"
 )
 
 func main() {
@@ -36,33 +37,24 @@ func main() {
 		}
 	}()
 
-	dbConnection, err := repository.OpenDatabaseConnection(
-		config.Database.Host,
-		config.Database.Port,
-		config.Database.User,
-		config.Database.Password,
-		config.Database.Database)
+	source := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		config.Database.Host, config.Database.Port, config.Database.User, config.Database.Password, config.Database.Database)
+	db, err := sql.Open("postgres", source)
 	if err != nil {
 		panic(err)
 	}
 	defer func() {
-		err := dbConnection.Close()
+		err := db.Close()
 		if err != nil {
 			logger.Error(err.Error())
 		}
 	}()
 
-	repo := repository.NewRepository(
-		dbConnection,
-		repository.NewPlayerRepository(dbConnection),
-		repository.NewRoomRepository(dbConnection),
-		repository.NewGameRepository(dbConnection),
-	)
 	app := app.NewApplication(
 		config,
 		logger,
-		auth.NewAuthenticationService(config, repo),
-		engine.NewGameEngineService(repo))
+		auth.NewAuthenticationService(config, db),
+		engine.NewGameEngineService(db))
 
 	go func() {
 		if err = app.Start(); err != nil {

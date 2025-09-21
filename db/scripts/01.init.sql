@@ -5,18 +5,22 @@ CREATE TABLE IF NOT EXISTS players (
     login varchar(256) NOT NULL,
     password VARCHAR(60) NOT NULL,
     nickname varchar(256) NOT NULL,
-    room_id INTEGER,
-    game_id INTEGER,
-    wins INTEGER NOT NULL DEFAULT 0,
-    losses INTEGER NOT NULL DEFAULT 0,
-    draws INTEGER NOT NULL DEFAULT 0,
-    
+       
     CONSTRAINT players_pk PRIMARY KEY(id),
     UNIQUE(login),
     UNIQUE(nickname)
 );
 ALTER SEQUENCE players_id_seq
 OWNED BY players.id;
+
+CREATE TABLE IF NOT EXISTS players_stats (
+    player_id INTEGER PRIMARY KEY,
+    wins INTEGER NOT NULL DEFAULT 0,
+    losses INTEGER NOT NULL DEFAULT 0,
+    draws INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT players_stats_fk_player FOREIGN KEY (player_id) REFERENCES players(id)
+);
 
 CREATE SEQUENCE IF NOT EXISTS rooms_id_seq;
 CREATE TABLE IF NOT EXISTS rooms (
@@ -25,8 +29,7 @@ CREATE TABLE IF NOT EXISTS rooms (
     host_continue BOOLEAN NOT NULL DEFAULT false,
     guest_id INTEGER,
     guest_continue BOOLEAN NOT NULL DEFAULT false,
-    game_id INTEGER, 
-    prev_game_id INTEGER, 
+    game_id INTEGER,     
     title VARCHAR(55) NOT NULL,
     description VARCHAR(1024),
     phase INTEGER NOT NULL DEFAULT 0,
@@ -34,13 +37,10 @@ CREATE TABLE IF NOT EXISTS rooms (
     CONSTRAINT rooms_pk PRIMARY KEY(id),
     CONSTRAINT rooms_fk_host FOREIGN KEY (host_id) REFERENCES players(id),
     CONSTRAINT rooms_fk_guest FOREIGN KEY (guest_id) REFERENCES players(id),
-    UNIQUE(title)
+    UNIQUE(host_id, title)
 );
 ALTER SEQUENCE rooms_id_seq
 OWNED BY rooms.id;
-
-ALTER TABLE players DROP CONSTRAINT IF EXISTS players_fk_room;
-ALTER TABLE players ADD CONSTRAINT players_fk_room FOREIGN KEY (room_id) REFERENCES rooms(id);
 
 CREATE SEQUENCE IF NOT EXISTS games_id_seq;
 CREATE TABLE IF NOT EXISTS games (
@@ -50,9 +50,8 @@ CREATE TABLE IF NOT EXISTS games (
     guest_id INTEGER NOT NULL,
     guest_mark CHAR(1) NOT NULL,
     current_player_id INTEGER NOT NULL,
-    board TEXT NOT NULL DEFAULT '         ',
+    board TEXT NOT NULL DEFAULT '_________',
     winner_id INTEGER,
-    loser_id INTEGER,
     phase INTEGER NOT NULL DEFAULT 0,
     
     CONSTRAINT games_pk PRIMARY KEY(id),
@@ -60,7 +59,6 @@ CREATE TABLE IF NOT EXISTS games (
     CONSTRAINT games_fk_guest FOREIGN KEY (guest_id) REFERENCES players(id),
     CONSTRAINT games_fk_current_player FOREIGN KEY (current_player_id) REFERENCES players(id),
     CONSTRAINT games_fk_winner FOREIGN KEY (winner_id) REFERENCES players(id),
-    CONSTRAINT games_fk_loser FOREIGN KEY (loser_id) REFERENCES players(id),
     CHECK (host_mark IN ('X', 'O')),
     CHECK (guest_mark IN ('X', 'O')),
     UNIQUE (id, host_id, guest_id)
@@ -68,11 +66,5 @@ CREATE TABLE IF NOT EXISTS games (
 ALTER SEQUENCE games_id_seq
 OWNED BY games.id;
 
-ALTER TABLE players DROP CONSTRAINT IF EXISTS players_fk_game;
-ALTER TABLE players ADD CONSTRAINT players_fk_game FOREIGN KEY (game_id) REFERENCES games(id);
-
 ALTER TABLE rooms DROP CONSTRAINT IF EXISTS rooms_fk_game;
 ALTER TABLE rooms ADD CONSTRAINT rooms_fk_game FOREIGN KEY (game_id) REFERENCES games(id);
-
-ALTER TABLE rooms DROP CONSTRAINT IF EXISTS rooms_fk_prev_game;
-ALTER TABLE rooms ADD CONSTRAINT rooms_fk_prev_game FOREIGN KEY (prev_game_id) REFERENCES games(id);

@@ -1,67 +1,70 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/plamen-v/tic-tac-toe-models/models"
-	"github.com/plamen-v/tic-tac-toe-models/models/errors"
-	"github.com/plamen-v/tic-tac-toe-models/models/requests"
 	"github.com/plamen-v/tic-tac-toe/src/app/server/middleware"
 	"github.com/plamen-v/tic-tac-toe/src/services/engine"
 )
 
 func CreateRoomHandler(gameEngineService engine.GameEngineService) func(*gin.Context) {
 	return func(c *gin.Context) {
-		var request requests.CreateRoomRequest
+		var request models.CreateRoomRequest
 		var err error
-		// Parse and bind JSON to struct
 		if err = c.BindJSON(&request); err != nil {
-			_ = c.Error(err)
+			_ = c.Error(models.NewValidationError("bad request"))
 			return
 		}
 
-		//token guarantees that KEY_PLAYER_ID is set
-		hostID := c.GetInt64(middleware.KEY_PLAYER_ID)
+		playerID := c.GetInt64(middleware.KEY_PLAYER_ID)
 		room := &models.Room{
 			Host: models.RoomParticipant{
-				ID:       hostID,
+				ID:       playerID,
 				Continue: true,
 			},
 			Title:       request.Title,
 			Description: request.Description,
 		}
 
-		roomID, err := gameEngineService.CreateRoom(room)
+		roomID, err := gameEngineService.CreateRoom(c.Request.Context(), room)
 		if err != nil {
 			_ = c.Error(err)
 			return
 		}
 
-		c.Header("Location", fmt.Sprintf("/rooms/%d", roomID))
-		c.JSON(http.StatusCreated, roomID)
+		response := models.Response{
+			StatusCode: http.StatusCreated,
+			Payload:    gin.H{"id": roomID},
+		}
+
+		c.JSON(response.StatusCode, response)
 	}
 }
 
 func GetOpenRoomsHandler(gameEngineService engine.GameEngineService) func(*gin.Context) {
 	return func(c *gin.Context) {
-		var request requests.GetOpenRoomsRequest
+		var request models.GetOpenRoomsRequest
 		var err error
-		// Parse and bind JSON to struct
 		if err = c.BindJSON(&request); err != nil {
-			_ = c.Error(err)
+			_ = c.Error(models.NewValidationError("bad request"))
 			return
 		}
-		rooms, err := gameEngineService.GetOpenRooms(request.Host, request.Title, request.Description, request.Phase)
+		rooms, err := gameEngineService.GetOpenRooms(c.Request.Context(), request.Host, request.Title, request.Description, request.Phase)
 		if err != nil {
 			_ = c.Error(err)
 			return
 		}
 
-		c.JSON(http.StatusOK, rooms)
+		response := models.Response{
+			StatusCode: http.StatusOK,
+			Payload:    gin.H{"rooms": rooms},
+		}
+
+		c.JSON(response.StatusCode, response)
 	}
 }
 
@@ -71,93 +74,77 @@ func GetRoomStateHandler(gameEngineService engine.GameEngineService) func(*gin.C
 		pRoomID := c.Param("roomId")
 		roomID, err := strconv.ParseInt(pRoomID, 10, 64)
 		if err != nil {
-			c.Error(errors.NewValidationErrorf("Invalid id '%s'", pRoomID)) //todo!
+			_ = c.Error(models.NewValidationErrorf("Invalid room id '%s'", pRoomID))
 			return
 		}
 
-		//token guarantees that KEY_PLAYER_ID is set
 		playerID := c.GetInt64(middleware.KEY_PLAYER_ID)
 
-		room, err := gameEngineService.GetRoomState(roomID, playerID)
+		room, err := gameEngineService.GetRoomState(c.Request.Context(), roomID, playerID)
 		if err != nil {
 			_ = c.Error(err)
 			return
 		}
 
-		c.Header("Location", fmt.Sprintf("/rooms/%d", room.ID))
-		c.JSON(http.StatusOK, room)
+		response := models.Response{
+			StatusCode: http.StatusOK,
+			Payload:    gin.H{"room": room},
+		}
+
+		c.JSON(response.StatusCode, response)
 	}
 }
 
-func RegisterGuestHandler(gameEngineService engine.GameEngineService) func(*gin.Context) {
+func PlayerJoinRoomHandler(gameEngineService engine.GameEngineService) func(*gin.Context) {
 	return func(c *gin.Context) {
 
 		pRoomID := c.Param("roomId")
 		roomID, err := strconv.ParseInt(pRoomID, 10, 64)
 		if err != nil {
-			c.Error(errors.NewValidationErrorf("Invalid id '%s'", pRoomID)) //todo!
+			_ = c.Error(models.NewValidationErrorf("Invalid room id '%s'", pRoomID))
 			return
 		}
 
-		//token guarantees that KEY_PLAYER_ID is set
-		guestID := c.GetInt64(middleware.KEY_PLAYER_ID)
+		playerID := c.GetInt64(middleware.KEY_PLAYER_ID)
 
-		err = gameEngineService.RegisterGuest(roomID, guestID)
+		err = gameEngineService.PlayerJoinRoom(c.Request.Context(), roomID, playerID)
 		if err != nil {
 			_ = c.Error(err)
 			return
 		}
 
-		c.Header("Location", fmt.Sprintf("/rooms/%d", roomID))
-		c.JSON(http.StatusOK, gin.H{}) //todo!
+		response := models.Response{
+			StatusCode: http.StatusOK,
+			Payload:    gin.H{},
+		}
+
+		c.JSON(response.StatusCode, response)
 	}
 }
 
-func GuestLeaveHandler(gameEngineService engine.GameEngineService) func(*gin.Context) {
+func PlayerLeaveRoomHandler(gameEngineService engine.GameEngineService) func(*gin.Context) {
 	return func(c *gin.Context) {
-
 		pRoomID := c.Param("roomId")
 		roomID, err := strconv.ParseInt(pRoomID, 10, 64)
 		if err != nil {
-			c.Error(errors.NewValidationErrorf("Invalid id '%s'", pRoomID)) //todo!
+			_ = c.Error(models.NewValidationErrorf("Invalid id '%s'", pRoomID))
 			return
 		}
 
-		//token guarantees that KEY_PLAYER_ID is set
-		guestID := c.GetInt64(middleware.KEY_PLAYER_ID)
+		playerID := c.GetInt64(middleware.KEY_PLAYER_ID)
 
-		err = gameEngineService.GuestLeave(roomID, guestID)
+		err = gameEngineService.PlayerLeaveRoom(c.Request.Context(), roomID, playerID)
 		if err != nil {
 			_ = c.Error(err)
 			return
 		}
 
-		c.Header("Location", "/rooms/")
-		c.JSON(http.StatusOK, gin.H{}) //todo!
-	}
-}
-
-func HostLeaveHandler(gameEngineService engine.GameEngineService) func(*gin.Context) {
-	return func(c *gin.Context) {
-
-		pRoomID := c.Param("roomId")
-		roomID, err := strconv.ParseInt(pRoomID, 10, 64)
-		if err != nil {
-			c.Error(errors.NewValidationErrorf("Invalid id '%s'", pRoomID)) //todo!
-			return
+		response := models.Response{
+			StatusCode: http.StatusOK,
+			Payload:    gin.H{},
 		}
 
-		//token guarantees that KEY_PLAYER_ID is set
-		hostID := c.GetInt64(middleware.KEY_PLAYER_ID)
-
-		err = gameEngineService.HostLeave(roomID, hostID)
-		if err != nil {
-			_ = c.Error(err)
-			return
-		}
-
-		c.Header("Location", "/rooms/")
-		c.JSON(http.StatusOK, gin.H{}) //todo!
+		c.JSON(response.StatusCode, response)
 	}
 }
 
@@ -167,28 +154,31 @@ func CreateGameHandler(gameEngineService engine.GameEngineService) func(*gin.Con
 		pRoomID := c.Param("roomId")
 		roomID, err := strconv.ParseInt(pRoomID, 10, 64)
 		if err != nil {
-			c.Error(errors.NewValidationErrorf("Invalid id '%s'", pRoomID)) //todo!
+			_ = c.Error(models.NewValidationErrorf("Invalid id '%s'", pRoomID))
 			return
 		}
 
-		//token guarantees that KEY_PLAYER_ID is set
 		playerID := c.GetInt64(middleware.KEY_PLAYER_ID)
 
-		gameID, err := gameEngineService.CreateGame(roomID, playerID)
+		gameID, err := gameEngineService.CreateGame(c.Request.Context(), roomID, playerID)
 		if err != nil {
 			_ = c.Error(err)
 			return
 		}
 
 		status := http.StatusAccepted
-		location := fmt.Sprintf("/rooms/%d/", roomID)
+		payload := gin.H{}
 		if gameID != 0 {
 			status = http.StatusCreated
-			location = fmt.Sprintf("/rooms/%d/games/%d", roomID, gameID)
+			payload = gin.H{"id": gameID}
 		}
 
-		c.Header("Location", location)
-		c.JSON(status, gin.H{}) //todo!
+		response := models.Response{
+			StatusCode: status,
+			Payload:    payload,
+		}
+
+		c.JSON(response.StatusCode, response)
 	}
 }
 
@@ -198,64 +188,57 @@ func GetGameStateHandler(gameEngineService engine.GameEngineService) func(*gin.C
 		pRoomID := c.Param("roomId")
 		roomID, err := strconv.ParseInt(pRoomID, 10, 64)
 		if err != nil {
-			c.Error(errors.NewValidationErrorf("Invalid id '%s'", pRoomID)) //todo!
+			_ = c.Error(models.NewValidationErrorf("Invalid id '%s'", pRoomID))
 			return
 		}
 
-		pGameID := c.Param("roomId")
-		gameID, err := strconv.ParseInt(pGameID, 10, 64)
-		if err != nil {
-			c.Error(errors.NewValidationErrorf("Invalid id '%s'", pGameID)) //todo!
-			return
-		}
-
-		//token guarantees that KEY_PLAYER_ID is set
 		playerID := c.GetInt64(middleware.KEY_PLAYER_ID)
 
-		game, err := gameEngineService.GetGameState(roomID, gameID, playerID)
+		game, err := gameEngineService.GetGameState(c.Request.Context(), roomID, playerID)
 		if err != nil {
 			_ = c.Error(err)
 			return
 		}
 
-		c.Header("Location", fmt.Sprintf("/rooms/%d/games/%d", roomID, gameID))
-		c.JSON(http.StatusOK, game)
+		response := models.Response{
+			StatusCode: http.StatusOK,
+			Payload:    gin.H{"game": game},
+		}
+
+		c.JSON(response.StatusCode, response)
 	}
 }
 
-func SetMarkHandler(gameEngineService engine.GameEngineService) func(*gin.Context) {
+func MakeMoveHandler(gameEngineService engine.GameEngineService) func(*gin.Context) {
 	return func(c *gin.Context) {
 
 		pRoomID := c.Param("roomId")
 		roomID, err := strconv.ParseInt(pRoomID, 10, 64)
 		if err != nil {
-			c.Error(errors.NewValidationErrorf("Invalid id '%s'", pRoomID)) //todo!
-			return
-		}
-
-		pGameID := c.Param("roomId")
-		gameID, err := strconv.ParseInt(pGameID, 10, 64)
-		if err != nil {
-			c.Error(errors.NewValidationErrorf("Invalid id '%s'", pGameID)) //todo!
+			_ = c.Error(models.NewValidationErrorf("Invalid id '%s'", pRoomID))
 			return
 		}
 
 		pPosition := c.Param("position")
 		position, err := strconv.Atoi(pPosition)
 		if err != nil {
-			c.Error(errors.NewValidationErrorf("Invalid position '%s'", pPosition)) //todo!
+			_ = c.Error(models.NewValidationErrorf("Invalid position '%s'", pPosition))
 			return
 		}
-		//token guarantees that KEY_PLAYER_ID is set
+
 		playerID := c.GetInt64(middleware.KEY_PLAYER_ID)
 
-		err = gameEngineService.SetMark(roomID, gameID, playerID, position)
+		err = gameEngineService.PlayerMakeMove(c.Request.Context(), roomID, playerID, position)
 		if err != nil {
 			_ = c.Error(err)
 			return
 		}
 
-		c.Header("Location", fmt.Sprintf("/rooms/%d/games/%d", roomID, gameID))
-		c.JSON(http.StatusOK, gin.H{})
+		response := models.Response{
+			StatusCode: http.StatusOK,
+			Payload:    gin.H{},
+		}
+
+		c.JSON(response.StatusCode, response)
 	}
 }

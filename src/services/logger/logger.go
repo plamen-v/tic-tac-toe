@@ -61,11 +61,7 @@ func (l *loggerService) Sync() error {
 }
 
 func (l *loggerService) initialize(appMode config.AppMode, logLevel config.LogLevel) error {
-	var (
-		level zapcore.Level
-		cfg   zap.Config
-		err   error
-	)
+	var cfg zap.Config
 	switch appMode {
 	case config.DevelopmentAppMode:
 		cfg = zap.NewDevelopmentConfig()
@@ -75,10 +71,13 @@ func (l *loggerService) initialize(appMode config.AppMode, logLevel config.LogLe
 		return fmt.Errorf("unknown application mode '%s'", appMode)
 	}
 
-	if err = level.UnmarshalText([]byte(logLevel)); err != nil {
+	var level zapcore.Level
+	err := level.UnmarshalText([]byte(logLevel))
+	if err != nil {
 		return err
 	}
 
+	//cfg.Encoding = "json"
 	cfg.EncoderConfig.EncodeTime = zapcore.EpochNanosTimeEncoder
 	cfg.Level = zap.NewAtomicLevelAt(level)
 

@@ -5,33 +5,37 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/plamen-v/tic-tac-toe-models/models/requests"
+	"github.com/plamen-v/tic-tac-toe-models/models"
 	"github.com/plamen-v/tic-tac-toe/src/services/auth"
 )
 
 func LoginHandler(authService auth.AuthenticationService) func(*gin.Context) {
 	return func(c *gin.Context) {
-		var loginRequest requests.LoginRequest
+		var loginRequest models.LoginRequest
 		var err error
-		// Parse and bind JSON to struct
 		if err = c.BindJSON(&loginRequest); err != nil {
-			c.Error(err)
+			_ = c.Error(models.NewValidationError("bad request"))
 			return
 		}
 
-		player, err := authService.Authenticate(loginRequest.Login, loginRequest.Password)
+		player, err := authService.Authenticate(c.Request.Context(), loginRequest.Login, loginRequest.Password)
 		if err != nil {
-			c.Error(err)
+			_ = c.Error(err)
 			return
 		}
 
 		tokenStr, err := authService.CreateToken(player)
 		if err != nil {
-			c.Error(err)
+			_ = c.Error(err)
 			return
 		}
 
 		c.Header(auth.AUTHORIZATION_HEADER, fmt.Sprintf("%s%s", auth.AUTHORIZATION_HEADER_PREFIX, tokenStr))
-		c.JSON(http.StatusOK, player)
+
+		response := models.Response{
+			StatusCode: http.StatusOK,
+			Payload:    gin.H{"player": player}}
+
+		c.JSON(response.StatusCode, response)
 	}
 }

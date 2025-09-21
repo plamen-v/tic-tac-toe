@@ -1,13 +1,14 @@
 package auth
 
 import (
-	"fmt"
+	"context"
+	"database/sql"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/plamen-v/tic-tac-toe-models/models"
 	"github.com/plamen-v/tic-tac-toe/src/config"
-	"github.com/plamen-v/tic-tac-toe/src/services/repository"
+	"github.com/plamen-v/tic-tac-toe/src/repository"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -20,7 +21,7 @@ const (
 type AuthenticationService interface {
 	CreateToken(player *models.Player) (string, error)
 	ValidateToken(token string) (*jwt.Token, error)
-	Authenticate(string, string) (*models.Player, error)
+	Authenticate(context.Context, string, string) (*models.Player, error)
 }
 
 type ExtendedClaims struct {
@@ -30,31 +31,34 @@ type ExtendedClaims struct {
 
 func (c ExtendedClaims) Validate() error {
 	if c.PlayerID <= 0 {
-		return fmt.Errorf("user_id cannot be empty") //todo!
+		return models.NewAuthorizationError("user_id claim is invalid")
 	}
 
-	// You can add more custom checks here todo!
 	return nil
 }
 
-func NewAuthenticationService(config *config.AppConfiguration, repo repository.Repository) AuthenticationService {
-	return &authenticationService{
+func NewAuthenticationService(config *config.AppConfiguration, db *sql.DB) AuthenticationService {
+	return &authenticationServiceImpl{
 		config: config,
-		repo:   repo,
+		db:     db,
 	}
 }
 
-type authenticationService struct {
+type authenticationServiceImpl struct {
 	config *config.AppConfiguration
-	repo   repository.Repository
+	db     *sql.DB
 }
 
-func (s *authenticationService) CreateToken(player *models.Player) (string, error) {
+func (s *authenticationServiceImpl) playerRepositoryFactory(q repository.Querier) repository.PlayerRepository {
+	return repository.NewPlayerRepository(q)
+}
+
+func (s *authenticationServiceImpl) CreateToken(player *models.Player) (string, error) {
 	claims := ExtendedClaims{
 		PlayerID: player.ID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   s.config.AppName,
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Second)), //todo! config
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(3600 * time.Second)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Issuer:    player.Login,
 		},
@@ -70,32 +74,25 @@ func (s *authenticationService) CreateToken(player *models.Player) (string, erro
 	return tokenString, nil
 }
 
-func (s *authenticationService) ValidateToken(tokenString string) (*jwt.Token, error) {
-	// Parse the token with the secret key
-	jwtToken, err := jwt.ParseWithClaims(tokenString, &ExtendedClaims{}, func(token *jwt.Token) (interface{}, error) {
+func (s *authenticationServiceImpl) ValidateToken(tokenString string) (*jwt.Token, error) {
+	if jwtToken, err := jwt.ParseWithClaims(tokenString, &ExtendedClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(s.config.Secret), nil
-	})
-
-	if err != nil {
-		return nil, err
+	}); err != nil {
+		return nil, models.NewAuthorizationError(err.Error())
+	} else {
+		return jwtToken, nil
 	}
-
-	if !jwtToken.Valid {
-		return nil, fmt.Errorf("invalid token")
-	}
-
-	return jwtToken, nil
 }
 
-func (s *authenticationService) Authenticate(login string, password string) (*models.Player, error) {
-	player, err := s.repo.Players().GetByLogin(login, nil) //todo! not found error
+func (s *authenticationServiceImpl) Authenticate(ctx context.Context, login string, password string) (*models.Player, error) {
+	player, err := s.playerRepositoryFactory(s.db).GetByLogin(ctx, login)
 	if err != nil {
-		return nil, err
+		return nil, models.NewAuthorizationError(err.Error())
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(player.Password), []byte(password))
 	if err != nil {
-		return nil, err
+		return nil, models.NewAuthorizationErrorf("invalid password")
 	}
 
 	return player, nil

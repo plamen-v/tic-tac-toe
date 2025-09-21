@@ -1,6 +1,5 @@
 package app
 
-//TODO! singletone
 import (
 	"context"
 
@@ -17,7 +16,7 @@ type Application interface {
 	Stop(context.Context) error
 }
 
-type application struct {
+type applicationImpl struct {
 	config                *config.AppConfiguration
 	logger                logger.LoggerService
 	server                server.APIServer
@@ -25,13 +24,12 @@ type application struct {
 	gameEngineService     engine.GameEngineService
 }
 
-// todo! singletone
 func NewApplication(
 	configuration *config.AppConfiguration,
 	logger logger.LoggerService,
 	authenticationService auth.AuthenticationService,
 	gameEngineService engine.GameEngineService) Application {
-	return &application{
+	return &applicationImpl{
 		config:                configuration,
 		logger:                logger,
 		authenticationService: authenticationService,
@@ -39,7 +37,7 @@ func NewApplication(
 	}
 }
 
-func (a *application) Start() error {
+func (a *applicationImpl) Start() error {
 	if err := a.initialize(); err != nil {
 		return err
 	}
@@ -47,18 +45,18 @@ func (a *application) Start() error {
 	return a.server.Start()
 }
 
-func (a *application) Stop(ctx context.Context) error {
+func (a *applicationImpl) Stop(ctx context.Context) error {
 	err := a.finalize(ctx)
 	a.logger.Info("END Bro TODO! HERE")
-	a.logger.Sync() //todo!
+	a.logger.Sync()
 	return err
 }
 
-func (a *application) initialize() error {
+func (a *applicationImpl) initialize() error {
 	a.server = server.NewAPI(a.config, a.logger, a.authenticationService, a.gameEngineService)
 	return nil
 }
 
-func (a *application) finalize(ctx context.Context) error {
+func (a *applicationImpl) finalize(ctx context.Context) error {
 	return a.server.Stop(ctx)
 }
