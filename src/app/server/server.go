@@ -80,7 +80,6 @@ func (s *apiServerImpl) setEndpoints(engine *gin.Engine) {
 
 	game.GET("/rooms", handlers.GetOpenRoomsHandler(s.gameEngineService))
 	game.POST("/rooms", handlers.CreateRoomHandler(s.gameEngineService))
-	game.GET("rooms/:roomId", handlers.GetRoomStateHandler(s.gameEngineService))
 	game.POST("rooms/:roomId/player", handlers.PlayerJoinRoomHandler(s.gameEngineService))
 	game.DELETE("rooms/:roomId/player", handlers.PlayerLeaveRoomHandler(s.gameEngineService))
 	game.POST("rooms/:roomId/game", handlers.CreateGameHandler(s.gameEngineService))

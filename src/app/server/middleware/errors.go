@@ -25,7 +25,7 @@ func ErrorHandler() gin.HandlerFunc {
 				errorCode = string(models.BadRequestErrorCode)
 				errorMessage = coreError.Error()
 			case *models.AuthorizationError:
-				statusCode = http.StatusForbidden
+				statusCode = http.StatusUnauthorized
 				errorCode = string(models.UnauthorizedErrorCode)
 				errorMessage = models.AuthorizationErrorMessage
 			case *models.GenericError:

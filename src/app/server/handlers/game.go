@@ -68,33 +68,6 @@ func GetOpenRoomsHandler(gameEngineService engine.GameEngineService) func(*gin.C
 	}
 }
 
-func GetRoomStateHandler(gameEngineService engine.GameEngineService) func(*gin.Context) {
-	return func(c *gin.Context) {
-
-		pRoomID := c.Param("roomId")
-		roomID, err := strconv.ParseInt(pRoomID, 10, 64)
-		if err != nil {
-			_ = c.Error(models.NewValidationErrorf("Invalid room id '%s'", pRoomID))
-			return
-		}
-
-		playerID := c.GetInt64(middleware.KEY_PLAYER_ID)
-
-		room, err := gameEngineService.GetRoomState(c.Request.Context(), roomID, playerID)
-		if err != nil {
-			_ = c.Error(err)
-			return
-		}
-
-		response := models.Response{
-			StatusCode: http.StatusOK,
-			Payload:    gin.H{"room": room},
-		}
-
-		c.JSON(response.StatusCode, response)
-	}
-}
-
 func PlayerJoinRoomHandler(gameEngineService engine.GameEngineService) func(*gin.Context) {
 	return func(c *gin.Context) {
 

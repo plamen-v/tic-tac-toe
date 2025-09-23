@@ -9,9 +9,28 @@ services:
       - POSTGRES_DB=$DB_DATABASE
     ports:
       - $DB_LOCAL_PORT:$DB_DOCKER_PORT
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U $POSTGRESDB_USER -d $POSTGRESDB_DATABASE'"]
+      interval: 5s
+      retries: 3
+      start_period: 30s
+      timeout: 10s
     volumes:
       - db:/var/lib/postgresql/data
       - ./db/scripts/01.init.sql:/docker-entrypoint-initdb.d/01.init.sql
       - ./db/scripts/02.data.sql:/docker-entrypoint-initdb.d/02.data.sql
+  app:
+    depends_on:
+      db:
+        condition: service_healthy
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: on-failure
+    env_file: ./.env
+    ports:
+      - $APP_PORT:$APP_PORT
+    stdin_open: true
+    tty: true
 volumes:
   db:

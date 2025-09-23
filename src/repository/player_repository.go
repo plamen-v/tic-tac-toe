@@ -26,17 +26,19 @@ type playerRepositoryImpl struct {
 
 func (r *playerRepositoryImpl) Get(ctx context.Context, id int64) (*models.Player, error) {
 	sqlStr := `
-		SELECT p.id, p.login, p.password, p.nickname, ps.wins, ps.losses, ps.draws
+		SELECT p.id, p.login, p.password, p.nickname, ps.wins, ps.losses, ps.draws, COALESCE(hr.id, gr.id) AS room_id
 		FROM players AS p
 		LEFT JOIN players_stats ps ON ps.player_id = p.id
+		LEFT JOIN rooms hr ON p.id = hr.host_id 
+		LEFT JOIN rooms gr ON p.id = gr.guest_id
 		WHERE p.id = $1
 		`
 
-	var row *sql.Row
-	row = r.db.QueryRowContext(ctx, sqlStr, id)
+	row := r.db.QueryRowContext(ctx, sqlStr, id)
 	player := &models.Player{}
 
-	err := row.Scan(&player.ID, &player.Login, &player.Password, &player.Nickname, &player.Stats.Wins, &player.Stats.Losses, &player.Stats.Draws)
+	var sqlRoomID sql.NullInt64
+	err := row.Scan(&player.ID, &player.Login, &player.Password, &player.Nickname, &player.Stats.Wins, &player.Stats.Losses, &player.Stats.Draws, &sqlRoomID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, models.NewNotFoundError("player not exist")
@@ -45,6 +47,9 @@ func (r *playerRepositoryImpl) Get(ctx context.Context, id int64) (*models.Playe
 		}
 	}
 
+	if sqlRoomID.Valid {
+		player.RoomID = &sqlRoomID.Int64
+	}
 	return player, nil
 }
 
@@ -56,9 +61,7 @@ func (r *playerRepositoryImpl) GetByLogin(ctx context.Context, login string) (*m
 		WHERE p.login = $1
 		`
 	player := &models.Player{}
-	var row *sql.Row
-
-	row = r.db.QueryRowContext(ctx, sqlStr, login)
+	row := r.db.QueryRowContext(ctx, sqlStr, login)
 
 	err := row.Scan(&player.ID, &player.Login, &player.Password, &player.Nickname, &player.Stats.Wins, &player.Stats.Losses, &player.Stats.Draws)
 	if err != nil {

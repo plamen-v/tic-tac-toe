@@ -35,7 +35,6 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id int64, lock bool) (*mod
 	}
 	sqlStr := fmt.Sprintf(`
 		SELECT 
-			r.id, 
 			ph.id AS host_id, 
 			ph.nickname AS host_nickname,
 			r.host_continue, 
@@ -49,7 +48,7 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id int64, lock bool) (*mod
 		FROM rooms AS r
 		INNER JOIN players AS ph ON ph.id = r.host_id
 		LEFT JOIN players AS pg ON pg.id = r.guest_id
-		WHERE r.id = $1
+		WHERE r.host_id = $1
 		%s;`, lockCmd)
 
 	row := r.db.QueryRowContext(ctx, sqlStr, id)
@@ -64,7 +63,6 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id int64, lock bool) (*mod
 
 	room := &models.Room{}
 	err := row.Scan(
-		&room.ID,
 		&room.Host.ID,
 		&room.Host.Nickname,
 		&room.Host.Continue,
@@ -110,7 +108,6 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id int64, lock bool) (*mod
 func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID int64) (*models.Room, error) {
 	sqlStr := `
 		SELECT 
-			r.id, 
 			ph.id AS host_id, 
 			ph.nickname AS host_nickname,
 			r.host_continue, 
@@ -139,7 +136,6 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID int64) 
 
 	room := &models.Room{}
 	err := row.Scan(
-		&room.ID,
 		&room.Host.ID,
 		&room.Host.Nickname,
 		&room.Host.Continue,
@@ -185,7 +181,6 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID int64) 
 func (r *roomRepositoryImpl) GetList(ctx context.Context, host string, title string, description string, phase models.RoomPhase) ([]*models.Room, error) {
 	sqlStr := `
 		SELECT 
-			r.id, 
 			ph.id AS host_id, 
 			ph.nickname AS host_nickname,
 			r.title, 
@@ -226,7 +221,7 @@ func (r *roomRepositoryImpl) GetList(ctx context.Context, host string, title str
 	var sqlDescription sql.NullString
 	for rows.Next() {
 		room := &models.Room{}
-		err := rows.Scan(&room.ID, &room.Host.ID, &room.Host.Nickname, &room.Title, &sqlDescription, &room.Phase)
+		err := rows.Scan(&room.Host.ID, &room.Host.Nickname, &room.Title, &sqlDescription, &room.Phase)
 		if err != nil {
 			return nil, models.NewGenericErrorWithCause("room scan failed", err)
 		}
@@ -282,7 +277,7 @@ func (r *roomRepositoryImpl) Update(ctx context.Context, room *models.Room) erro
 		sqlGuestContinue = room.Guest.Continue
 	}
 
-	result, err := r.db.ExecContext(ctx, sqlStr, room.ID, room.Host.Continue, sqlGuestID, sqlGuestContinue, room.GameID, room.Phase)
+	result, err := r.db.ExecContext(ctx, sqlStr, room.Host.ID, room.Host.Continue, sqlGuestID, sqlGuestContinue, room.GameID, room.Phase)
 	if err != nil {
 		return models.NewGenericErrorWithCause("room update failed", err)
 	}

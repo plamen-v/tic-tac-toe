@@ -20,7 +20,6 @@ const (
 type GameEngineService interface {
 	GetOpenRooms(context.Context, string, string, string, models.RoomPhase) ([]*models.Room, error)
 	CreateRoom(context.Context, *models.Room) (int64, error)
-	GetRoomState(context.Context, int64, int64) (*models.Room, error)
 	PlayerJoinRoom(context.Context, int64, int64) error
 	PlayerLeaveRoom(context.Context, int64, int64) error
 	CreateGame(context.Context, int64, int64) (int64, error)
@@ -80,28 +79,6 @@ func (g *gameEngineServiceImpl) validateCreateRoom(ctx context.Context, roomRepo
 		return models.NewValidationErrorf("title is required")
 	}
 
-	return nil
-}
-
-func (g *gameEngineServiceImpl) GetRoomState(ctx context.Context, roomID int64, playerID int64) (*models.Room, error) {
-	roomRepository := g.roomRepositoryFactory(g.db)
-	room, err := roomRepository.Get(ctx, roomID, false)
-	if err != nil {
-		return nil, err
-	}
-	err = g.validateGetRoomState(room, playerID)
-	if err != nil {
-		return nil, err
-	}
-
-	return room, nil
-}
-
-func (g *gameEngineServiceImpl) validateGetRoomState(room *models.Room, playerID int64) error {
-	if room.Host.ID != playerID &&
-		(room.Guest == nil || room.Guest.ID != playerID) {
-		return models.NewValidationErrorf("player is not part of the room")
-	}
 	return nil
 }
 
@@ -223,7 +200,7 @@ func (g *gameEngineServiceImpl) PlayerLeaveRoom(ctx context.Context, roomID int6
 		}
 
 		if playerIsHost {
-			err = roomRepository.Delete(ctx, room.ID)
+			err = roomRepository.Delete(ctx, room.Host.ID)
 			if err != nil {
 				return err
 			}

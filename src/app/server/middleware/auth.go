@@ -1,10 +1,10 @@
 package middleware
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/plamen-v/tic-tac-toe-models/models"
 	"github.com/plamen-v/tic-tac-toe/src/services/auth"
 )
 
@@ -24,7 +24,7 @@ func Authentication(authService auth.AuthenticationService) gin.HandlerFunc {
 		if claims, ok := jwtToken.Claims.(*auth.ExtendedClaims); ok {
 			c.Set(KEY_PLAYER_ID, claims.PlayerID)
 		} else {
-			_ = c.Error(fmt.Errorf("Invalid token"))
+			_ = c.Error(models.NewAuthorizationError("Invalid token"))
 			c.Abort()
 		}
 

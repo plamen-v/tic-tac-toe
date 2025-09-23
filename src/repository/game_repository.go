@@ -40,8 +40,7 @@ func (r *gameRepositoryImpl) Get(ctx context.Context, id int64) (*models.Game, e
 		FROM games AS g
 		WHERE g.id = $1`
 
-	var row *sql.Row
-	row = r.db.QueryRowContext(ctx, sqlStr, id)
+	row := r.db.QueryRowContext(ctx, sqlStr, id)
 
 	var winnerID sql.NullInt64
 	game := &models.Game{}
