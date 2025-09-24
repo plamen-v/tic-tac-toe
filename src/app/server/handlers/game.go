@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gofrs/uuid"
 
 	"github.com/plamen-v/tic-tac-toe-models/models"
 	"github.com/plamen-v/tic-tac-toe/src/app/server/middleware"
@@ -20,11 +21,16 @@ func CreateRoomHandler(gameEngineService engine.GameEngineService) func(*gin.Con
 			return
 		}
 
-		playerID := c.GetInt64(middleware.KEY_PLAYER_ID)
+		playerID, ok := GetPlayerIDFromContext(c, middleware.KEY_PLAYER_ID)
+		if !ok {
+			_ = c.Error(models.NewValidationError("Missing player_id claim"))
+			return
+		}
+
 		room := &models.Room{
-			Host: models.RoomParticipant{
-				ID:       playerID,
-				Continue: true,
+			Host: models.RoomPlayer{
+				ID:             playerID,
+				RequestNewGame: true,
 			},
 			Title:       request.Title,
 			Description: request.Description,
@@ -38,7 +44,7 @@ func CreateRoomHandler(gameEngineService engine.GameEngineService) func(*gin.Con
 
 		response := models.Response{
 			StatusCode: http.StatusCreated,
-			Payload:    gin.H{"id": roomID},
+			Payload:    roomID,
 		}
 
 		c.JSON(response.StatusCode, response)
@@ -53,7 +59,7 @@ func GetOpenRoomsHandler(gameEngineService engine.GameEngineService) func(*gin.C
 			_ = c.Error(models.NewValidationError("bad request"))
 			return
 		}
-		rooms, err := gameEngineService.GetOpenRooms(c.Request.Context(), request.Host, request.Title, request.Description, request.Phase)
+		rooms, err := gameEngineService.GetOpenRooms(c.Request.Context(), request.Keyword)
 		if err != nil {
 			_ = c.Error(err)
 			return
@@ -61,7 +67,7 @@ func GetOpenRoomsHandler(gameEngineService engine.GameEngineService) func(*gin.C
 
 		response := models.Response{
 			StatusCode: http.StatusOK,
-			Payload:    gin.H{"rooms": rooms},
+			Payload:    rooms,
 		}
 
 		c.JSON(response.StatusCode, response)
@@ -72,13 +78,17 @@ func PlayerJoinRoomHandler(gameEngineService engine.GameEngineService) func(*gin
 	return func(c *gin.Context) {
 
 		pRoomID := c.Param("roomId")
-		roomID, err := strconv.ParseInt(pRoomID, 10, 64)
+		roomID, err := uuid.FromString(pRoomID)
 		if err != nil {
 			_ = c.Error(models.NewValidationErrorf("Invalid room id '%s'", pRoomID))
 			return
 		}
 
-		playerID := c.GetInt64(middleware.KEY_PLAYER_ID)
+		playerID, ok := GetPlayerIDFromContext(c, middleware.KEY_PLAYER_ID)
+		if !ok {
+			_ = c.Error(models.NewValidationError("Missing player_id claim"))
+			return
+		}
 
 		err = gameEngineService.PlayerJoinRoom(c.Request.Context(), roomID, playerID)
 		if err != nil {
@@ -88,7 +98,6 @@ func PlayerJoinRoomHandler(gameEngineService engine.GameEngineService) func(*gin
 
 		response := models.Response{
 			StatusCode: http.StatusOK,
-			Payload:    gin.H{},
 		}
 
 		c.JSON(response.StatusCode, response)
@@ -98,13 +107,17 @@ func PlayerJoinRoomHandler(gameEngineService engine.GameEngineService) func(*gin
 func PlayerLeaveRoomHandler(gameEngineService engine.GameEngineService) func(*gin.Context) {
 	return func(c *gin.Context) {
 		pRoomID := c.Param("roomId")
-		roomID, err := strconv.ParseInt(pRoomID, 10, 64)
+		roomID, err := uuid.FromString(pRoomID)
 		if err != nil {
 			_ = c.Error(models.NewValidationErrorf("Invalid id '%s'", pRoomID))
 			return
 		}
 
-		playerID := c.GetInt64(middleware.KEY_PLAYER_ID)
+		playerID, ok := GetPlayerIDFromContext(c, middleware.KEY_PLAYER_ID)
+		if !ok {
+			_ = c.Error(models.NewValidationError("Missing player_id claim"))
+			return
+		}
 
 		err = gameEngineService.PlayerLeaveRoom(c.Request.Context(), roomID, playerID)
 		if err != nil {
@@ -114,7 +127,6 @@ func PlayerLeaveRoomHandler(gameEngineService engine.GameEngineService) func(*gi
 
 		response := models.Response{
 			StatusCode: http.StatusOK,
-			Payload:    gin.H{},
 		}
 
 		c.JSON(response.StatusCode, response)
@@ -123,15 +135,18 @@ func PlayerLeaveRoomHandler(gameEngineService engine.GameEngineService) func(*gi
 
 func CreateGameHandler(gameEngineService engine.GameEngineService) func(*gin.Context) {
 	return func(c *gin.Context) {
-
 		pRoomID := c.Param("roomId")
-		roomID, err := strconv.ParseInt(pRoomID, 10, 64)
+		roomID, err := uuid.FromString(pRoomID)
 		if err != nil {
 			_ = c.Error(models.NewValidationErrorf("Invalid id '%s'", pRoomID))
 			return
 		}
 
-		playerID := c.GetInt64(middleware.KEY_PLAYER_ID)
+		playerID, ok := GetPlayerIDFromContext(c, middleware.KEY_PLAYER_ID)
+		if !ok {
+			_ = c.Error(models.NewValidationError("Missing player_id claim"))
+			return
+		}
 
 		gameID, err := gameEngineService.CreateGame(c.Request.Context(), roomID, playerID)
 		if err != nil {
@@ -140,10 +155,10 @@ func CreateGameHandler(gameEngineService engine.GameEngineService) func(*gin.Con
 		}
 
 		status := http.StatusAccepted
-		payload := gin.H{}
-		if gameID != 0 {
+		var payload *uuid.UUID
+		if gameID != uuid.Nil {
 			status = http.StatusCreated
-			payload = gin.H{"id": gameID}
+			payload = &gameID
 		}
 
 		response := models.Response{
@@ -159,13 +174,17 @@ func GetGameStateHandler(gameEngineService engine.GameEngineService) func(*gin.C
 	return func(c *gin.Context) {
 
 		pRoomID := c.Param("roomId")
-		roomID, err := strconv.ParseInt(pRoomID, 10, 64)
+		roomID, err := uuid.FromString(pRoomID)
 		if err != nil {
 			_ = c.Error(models.NewValidationErrorf("Invalid id '%s'", pRoomID))
 			return
 		}
 
-		playerID := c.GetInt64(middleware.KEY_PLAYER_ID)
+		playerID, ok := GetPlayerIDFromContext(c, middleware.KEY_PLAYER_ID)
+		if !ok {
+			_ = c.Error(models.NewValidationError("Missing player_id claim"))
+			return
+		}
 
 		game, err := gameEngineService.GetGameState(c.Request.Context(), roomID, playerID)
 		if err != nil {
@@ -175,7 +194,7 @@ func GetGameStateHandler(gameEngineService engine.GameEngineService) func(*gin.C
 
 		response := models.Response{
 			StatusCode: http.StatusOK,
-			Payload:    gin.H{"game": game},
+			Payload:    game,
 		}
 
 		c.JSON(response.StatusCode, response)
@@ -186,7 +205,7 @@ func MakeMoveHandler(gameEngineService engine.GameEngineService) func(*gin.Conte
 	return func(c *gin.Context) {
 
 		pRoomID := c.Param("roomId")
-		roomID, err := strconv.ParseInt(pRoomID, 10, 64)
+		roomID, err := uuid.FromString(pRoomID)
 		if err != nil {
 			_ = c.Error(models.NewValidationErrorf("Invalid id '%s'", pRoomID))
 			return
@@ -199,7 +218,11 @@ func MakeMoveHandler(gameEngineService engine.GameEngineService) func(*gin.Conte
 			return
 		}
 
-		playerID := c.GetInt64(middleware.KEY_PLAYER_ID)
+		playerID, ok := GetPlayerIDFromContext(c, middleware.KEY_PLAYER_ID)
+		if !ok {
+			_ = c.Error(models.NewValidationError("Missing player_id claim"))
+			return
+		}
 
 		err = gameEngineService.PlayerMakeMove(c.Request.Context(), roomID, playerID, position)
 		if err != nil {
@@ -209,9 +232,17 @@ func MakeMoveHandler(gameEngineService engine.GameEngineService) func(*gin.Conte
 
 		response := models.Response{
 			StatusCode: http.StatusOK,
-			Payload:    gin.H{},
 		}
 
 		c.JSON(response.StatusCode, response)
 	}
+}
+
+func GetPlayerIDFromContext(c *gin.Context, key string) (uuid.UUID, bool) {
+	val, exists := c.Get(key)
+	if !exists {
+		return uuid.Nil, false
+	}
+	u, ok := val.(uuid.NullUUID)
+	return u.UUID, ok
 }

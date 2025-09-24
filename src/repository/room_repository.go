@@ -5,17 +5,18 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/gofrs/uuid"
 	"github.com/plamen-v/tic-tac-toe-models/models"
 )
 
 // todo! error msg
 type RoomRepository interface {
-	Get(context.Context, int64, bool) (*models.Room, error)
-	GetByPlayerID(context.Context, int64) (*models.Room, error)
-	GetList(context.Context, string, string, string, models.RoomPhase) ([]*models.Room, error)
-	Create(context.Context, *models.Room) (int64, error)
+	Get(context.Context, uuid.UUID, bool) (*models.Room, error)
+	GetByPlayerID(context.Context, uuid.UUID) (*models.Room, error)
+	GetList(context.Context, string, models.RoomPhase) ([]*models.Room, error)
+	Create(context.Context, *models.Room) (uuid.UUID, error)
 	Update(context.Context, *models.Room) error
-	Delete(context.Context, int64) error
+	Delete(context.Context, uuid.UUID) error
 }
 
 func NewRoomRepository(db Querier) RoomRepository {
@@ -28,7 +29,7 @@ type roomRepositoryImpl struct {
 	db Querier
 }
 
-func (r *roomRepositoryImpl) Get(ctx context.Context, id int64, lock bool) (*models.Room, error) {
+func (r *roomRepositoryImpl) Get(ctx context.Context, id uuid.UUID, lock bool) (*models.Room, error) {
 	lockCmd := ""
 	if lock {
 		lockCmd = "FOR UPDATE OF r"
@@ -37,10 +38,10 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id int64, lock bool) (*mod
 		SELECT 
 			ph.id AS host_id, 
 			ph.nickname AS host_nickname,
-			r.host_continue, 
+			r.host_request_new_game, 
 			pg.id AS guest_id, 
 			pg.nickname AS guest_nickname,
-			r.guest_continue,
+			r.guest_request_new_game,
 			r.game_id, 
 			r.title, 
 			r.description, 
@@ -54,21 +55,21 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id int64, lock bool) (*mod
 	row := r.db.QueryRowContext(ctx, sqlStr, id)
 
 	var (
-		sqlGuestID       sql.NullInt64
-		sqlGuestNickname sql.NullString
-		sqlGuestContinue sql.NullBool
-		sqlGameID        sql.NullInt64
-		sqlDescription   sql.NullString
+		sqlGuestID             uuid.NullUUID
+		sqlGuestNickname       sql.NullString
+		sqlGuestRequestNewGame sql.NullBool
+		sqlGameID              uuid.NullUUID
+		sqlDescription         sql.NullString
 	)
 
 	room := &models.Room{}
 	err := row.Scan(
 		&room.Host.ID,
 		&room.Host.Nickname,
-		&room.Host.Continue,
+		&room.Host.RequestNewGame,
 		&sqlGuestID,
 		&sqlGuestNickname,
-		&sqlGuestContinue,
+		&sqlGuestRequestNewGame,
 		&sqlGameID,
 		&room.Title,
 		&sqlDescription,
@@ -83,19 +84,19 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id int64, lock bool) (*mod
 	}
 
 	if sqlGuestID.Valid {
-		room.Guest = &models.RoomParticipant{ID: sqlGuestID.Int64}
+		room.Guest = &models.RoomPlayer{ID: sqlGuestID.UUID}
 
 		if sqlGuestNickname.Valid {
 			room.Guest.Nickname = sqlGuestNickname.String
 		}
 
-		if sqlGuestContinue.Valid {
-			room.Guest.Continue = sqlGuestContinue.Bool
+		if sqlGuestRequestNewGame.Valid {
+			room.Guest.RequestNewGame = sqlGuestRequestNewGame.Bool
 		}
 	}
 
 	if sqlGameID.Valid {
-		room.GameID = &sqlGameID.Int64
+		room.GameID = &sqlGameID.UUID
 	}
 
 	if sqlDescription.Valid {
@@ -105,7 +106,7 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id int64, lock bool) (*mod
 	return room, nil
 }
 
-func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID int64) (*models.Room, error) {
+func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID uuid.UUID) (*models.Room, error) {
 	sqlStr := `
 		SELECT 
 			ph.id AS host_id, 
@@ -127,21 +128,21 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID int64) 
 	row := r.db.QueryRowContext(ctx, sqlStr, playerID)
 
 	var (
-		sqlGuestID       sql.NullInt64
-		sqlGuestNickname sql.NullString
-		sqlGuestContinue sql.NullBool
-		sqlGameID        sql.NullInt64
-		sqlDescription   sql.NullString
+		sqlGuestID             uuid.NullUUID
+		sqlGuestNickname       sql.NullString
+		sqlGuestRequestNewGame sql.NullBool
+		sqlGameID              uuid.NullUUID
+		sqlDescription         sql.NullString
 	)
 
 	room := &models.Room{}
 	err := row.Scan(
 		&room.Host.ID,
 		&room.Host.Nickname,
-		&room.Host.Continue,
+		&room.Host.RequestNewGame,
 		&sqlGuestID,
 		&sqlGuestNickname,
-		&sqlGuestContinue,
+		&sqlGuestRequestNewGame,
 		&sqlGameID,
 		&room.Title,
 		&sqlDescription,
@@ -156,19 +157,19 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID int64) 
 	}
 
 	if sqlGuestID.Valid {
-		room.Guest = &models.RoomParticipant{}
+		room.Guest = &models.RoomPlayer{}
 
 		if sqlGuestNickname.Valid {
 			room.Guest.Nickname = sqlGuestNickname.String
 		}
 
-		if sqlGuestContinue.Valid {
-			room.Guest.Continue = sqlGuestContinue.Bool
+		if sqlGuestRequestNewGame.Valid {
+			room.Guest.RequestNewGame = sqlGuestRequestNewGame.Bool
 		}
 	}
 
 	if sqlGameID.Valid {
-		room.GameID = &sqlGameID.Int64
+		room.GameID = &sqlGameID.UUID
 	}
 
 	if sqlDescription.Valid {
@@ -178,7 +179,7 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID int64) 
 	return room, nil
 }
 
-func (r *roomRepositoryImpl) GetList(ctx context.Context, host string, title string, description string, phase models.RoomPhase) ([]*models.Room, error) {
+func (r *roomRepositoryImpl) GetList(ctx context.Context, keyword string, phase models.RoomPhase) ([]*models.Room, error) {
 	sqlStr := `
 		SELECT 
 			ph.id AS host_id, 
@@ -189,29 +190,18 @@ func (r *roomRepositoryImpl) GetList(ctx context.Context, host string, title str
 		FROM rooms AS r
 		INNER JOIN players AS ph ON ph.id = r.host_id
 		WHERE (r.phase = $1)
-		AND ($2::text IS NULL OR r.title LIKE $2)
-		AND ($3::text IS NULL OR r.description LIKE $3)
-		AND ($4::text IS NULL OR  ph.nickname LIKE $4)
+		AND (($2::text IS NULL OR r.title LIKE $2)
+			OR ($3::text IS NULL OR r.description LIKE $2)
+			OR ($4::text IS NULL OR  ph.nickname LIKE $2))
 		`
 
-	var titleArg sql.NullString
-	if title != "" {
-		titleArg.String = fmt.Sprintf("%%%s%%", title)
-		titleArg.Valid = true
+	var keywordArg sql.NullString
+	if keyword != "" {
+		keywordArg.String = fmt.Sprintf("%%%s%%", keyword)
+		keywordArg.Valid = true
 	}
 
-	var descriptionArg sql.NullString
-	if description != "" {
-		descriptionArg.String = fmt.Sprintf("%%%s%%", description)
-		descriptionArg.Valid = true
-	}
-
-	var hostArg sql.NullString
-	if host != "" {
-		hostArg.String = fmt.Sprintf("%%%s%%", host)
-		hostArg.Valid = true
-	}
-	rows, err := r.db.QueryContext(ctx, sqlStr, phase, titleArg, descriptionArg, hostArg)
+	rows, err := r.db.QueryContext(ctx, sqlStr, phase, keywordArg)
 	if err != nil {
 		return nil, models.NewGenericErrorWithCause("rooms select failed", err)
 	}
@@ -241,15 +231,14 @@ func (r *roomRepositoryImpl) GetList(ctx context.Context, host string, title str
 	return rooms, nil
 }
 
-func (r *roomRepositoryImpl) Create(ctx context.Context, room *models.Room) (int64, error) {
+func (r *roomRepositoryImpl) Create(ctx context.Context, room *models.Room) (uuid.UUID, error) {
 	sqlStr := `
-		INSERT INTO rooms(host_id, host_continue, title, description, phase)
+		INSERT INTO rooms(host_id, host_request_new_game, title, description, phase)
 		VALUES($1, $2, $3, $4, $5)
 		RETURNING id
 		`
-
-	var id int64
-	err := r.db.QueryRowContext(ctx, sqlStr, room.Host.ID, room.Host.Continue, room.Title, room.Description, room.Phase).Scan(&id)
+	var id uuid.UUID
+	err := r.db.QueryRowContext(ctx, sqlStr, room.Host.ID, room.Host.RequestNewGame, room.Title, room.Description, room.Phase).Scan(&id)
 	if err != nil {
 		err = models.NewGenericErrorWithCause("room insert failed", err)
 	}
@@ -268,16 +257,17 @@ func (r *roomRepositoryImpl) Update(ctx context.Context, room *models.Room) erro
 		WHERE id     	   = $1
 		`
 	var (
-		sqlGuestID       *int64
-		sqlGuestContinue bool = false
+		sqlGuestID             uuid.NullUUID
+		sqlGuestRequestNewGame bool = false
 	)
 
 	if room.Guest != nil {
-		sqlGuestID = &room.Guest.ID
-		sqlGuestContinue = room.Guest.Continue
+		sqlGuestID.UUID = room.Guest.ID
+		sqlGuestID.Valid = true
+		sqlGuestRequestNewGame = room.Guest.RequestNewGame
 	}
 
-	result, err := r.db.ExecContext(ctx, sqlStr, room.Host.ID, room.Host.Continue, sqlGuestID, sqlGuestContinue, room.GameID, room.Phase)
+	result, err := r.db.ExecContext(ctx, sqlStr, room.Host.ID, room.Host.RequestNewGame, sqlGuestID, sqlGuestRequestNewGame, room.GameID, room.Phase)
 	if err != nil {
 		return models.NewGenericErrorWithCause("room update failed", err)
 	}
@@ -292,7 +282,7 @@ func (r *roomRepositoryImpl) Update(ctx context.Context, room *models.Room) erro
 	return err
 }
 
-func (r *roomRepositoryImpl) Delete(ctx context.Context, id int64) error {
+func (r *roomRepositoryImpl) Delete(ctx context.Context, id uuid.UUID) error {
 	sqlStr := `DELETE FROM rooms WHERE id = $1`
 
 	result, err := r.db.ExecContext(ctx, sqlStr, id)

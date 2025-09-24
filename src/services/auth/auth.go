@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/gofrs/uuid"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/plamen-v/tic-tac-toe-models/models"
 	"github.com/plamen-v/tic-tac-toe/src/config"
@@ -25,13 +26,13 @@ type AuthenticationService interface {
 }
 
 type ExtendedClaims struct {
-	PlayerID int64 `json:"player_id"`
+	PlayerID uuid.NullUUID `json:"player_id"`
 	jwt.RegisteredClaims
 }
 
 func (c ExtendedClaims) Validate() error {
-	if c.PlayerID <= 0 {
-		return models.NewAuthorizationError("user_id claim is invalid")
+	if !c.PlayerID.Valid {
+		return models.NewAuthorizationError("player_id claim is invalid")
 	}
 
 	return nil
@@ -55,7 +56,7 @@ func (s *authenticationServiceImpl) playerRepositoryFactory(q repository.Querier
 
 func (s *authenticationServiceImpl) CreateToken(player *models.Player) (string, error) {
 	claims := ExtendedClaims{
-		PlayerID: player.ID,
+		PlayerID: uuid.NullUUID{UUID: player.ID, Valid: true},
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   s.config.AppName,
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(3600 * time.Second)),

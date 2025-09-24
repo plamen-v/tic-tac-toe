@@ -4,12 +4,13 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/gofrs/uuid"
 	"github.com/plamen-v/tic-tac-toe-models/models"
 )
 
 type GameRepository interface {
-	Get(context.Context, int64) (*models.Game, error)
-	Create(context.Context, *models.Game) (int64, error)
+	Get(context.Context, uuid.UUID) (*models.Game, error)
+	Create(context.Context, *models.Game) (uuid.UUID, error)
 	Update(context.Context, *models.Game) error
 }
 
@@ -24,7 +25,7 @@ type gameRepositoryImpl struct {
 	db Querier
 }
 
-func (r *gameRepositoryImpl) Get(ctx context.Context, id int64) (*models.Game, error) {
+func (r *gameRepositoryImpl) Get(ctx context.Context, id uuid.UUID) (*models.Game, error) {
 
 	sqlStr := `
 		SELECT 
@@ -42,11 +43,11 @@ func (r *gameRepositoryImpl) Get(ctx context.Context, id int64) (*models.Game, e
 
 	row := r.db.QueryRowContext(ctx, sqlStr, id)
 
-	var winnerID sql.NullInt64
+	var winnerID uuid.NullUUID
 	game := &models.Game{}
 	err := row.Scan(
-		&game.ID, &game.HostID, &game.HostMark,
-		&game.GuestID, &game.GuestMark, &game.CurrentPlayerID,
+		&game.ID, &game.Host.ID, &game.Host.Mark,
+		&game.Guest.ID, &game.Guest.Mark, &game.CurrentPlayerID,
 		&game.Board, &winnerID, &game.Phase)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -57,13 +58,13 @@ func (r *gameRepositoryImpl) Get(ctx context.Context, id int64) (*models.Game, e
 	}
 
 	if winnerID.Valid {
-		game.WinnerID = &winnerID.Int64
+		game.WinnerID = &winnerID.UUID
 	}
 
 	return game, nil
 }
 
-func (r *gameRepositoryImpl) Create(ctx context.Context, game *models.Game) (int64, error) {
+func (r *gameRepositoryImpl) Create(ctx context.Context, game *models.Game) (uuid.UUID, error) {
 	sqlStr := `
 		INSERT INTO games(
 			host_id, 
@@ -75,8 +76,8 @@ func (r *gameRepositoryImpl) Create(ctx context.Context, game *models.Game) (int
 		VALUES($1, $2, $3, $4, $5, $6)
 		RETURNING id`
 
-	var id int64
-	err := r.db.QueryRowContext(ctx, sqlStr, game.HostID, game.HostMark, game.GuestID, game.GuestMark, game.CurrentPlayerID, game.Phase).Scan(&id)
+	var id uuid.UUID
+	err := r.db.QueryRowContext(ctx, sqlStr, game.Host.ID, game.Host.Mark, game.Guest.ID, game.Guest.Mark, game.CurrentPlayerID, game.Phase).Scan(&id)
 
 	if err != nil {
 		err = models.NewGenericErrorWithCause("game insert failed", err)

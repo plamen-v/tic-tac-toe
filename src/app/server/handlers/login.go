@@ -34,7 +34,7 @@ func LoginHandler(authService auth.AuthenticationService) func(*gin.Context) {
 
 		response := models.Response{
 			StatusCode: http.StatusOK,
-			Payload:    gin.H{"player": player}}
+			Payload:    player}
 
 		c.JSON(response.StatusCode, response)
 	}

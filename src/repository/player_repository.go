@@ -5,11 +5,12 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/gofrs/uuid"
 	"github.com/plamen-v/tic-tac-toe-models/models"
 )
 
 type PlayerRepository interface {
-	Get(context.Context, int64) (*models.Player, error)
+	Get(context.Context, uuid.UUID) (*models.Player, error)
 	GetByLogin(context.Context, string) (*models.Player, error)
 	UpdateStats(context.Context, *models.Player) error
 }
@@ -24,7 +25,7 @@ type playerRepositoryImpl struct {
 	db Querier
 }
 
-func (r *playerRepositoryImpl) Get(ctx context.Context, id int64) (*models.Player, error) {
+func (r *playerRepositoryImpl) Get(ctx context.Context, id uuid.UUID) (*models.Player, error) {
 	sqlStr := `
 		SELECT p.id, p.login, p.password, p.nickname, ps.wins, ps.losses, ps.draws, COALESCE(hr.id, gr.id) AS room_id
 		FROM players AS p
@@ -37,7 +38,7 @@ func (r *playerRepositoryImpl) Get(ctx context.Context, id int64) (*models.Playe
 	row := r.db.QueryRowContext(ctx, sqlStr, id)
 	player := &models.Player{}
 
-	var sqlRoomID sql.NullInt64
+	var sqlRoomID uuid.NullUUID
 	err := row.Scan(&player.ID, &player.Login, &player.Password, &player.Nickname, &player.Stats.Wins, &player.Stats.Losses, &player.Stats.Draws, &sqlRoomID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -48,7 +49,7 @@ func (r *playerRepositoryImpl) Get(ctx context.Context, id int64) (*models.Playe
 	}
 
 	if sqlRoomID.Valid {
-		player.RoomID = &sqlRoomID.Int64
+		player.RoomID = &sqlRoomID.UUID
 	}
 	return player, nil
 }
@@ -81,7 +82,7 @@ func (r *playerRepositoryImpl) UpdateStats(ctx context.Context, player *models.P
 		SET wins    = $2,
     		losses  = $3,
     		draws   = $4
-		WHERE player_id    = $1`
+		WHERE player_id = $1`
 
 	result, err := r.db.ExecContext(ctx, sqlStr, player.ID, player.Stats.Wins, player.Stats.Losses, player.Stats.Draws)
 

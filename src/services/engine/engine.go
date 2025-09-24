@@ -6,6 +6,7 @@ import (
 	"math/rand/v2"
 	"strings"
 
+	"github.com/gofrs/uuid"
 	"github.com/plamen-v/tic-tac-toe-models/models"
 	"github.com/plamen-v/tic-tac-toe/src/repository"
 )
@@ -18,13 +19,13 @@ const (
 )
 
 type GameEngineService interface {
-	GetOpenRooms(context.Context, string, string, string, models.RoomPhase) ([]*models.Room, error)
-	CreateRoom(context.Context, *models.Room) (int64, error)
-	PlayerJoinRoom(context.Context, int64, int64) error
-	PlayerLeaveRoom(context.Context, int64, int64) error
-	CreateGame(context.Context, int64, int64) (int64, error)
-	GetGameState(context.Context, int64, int64) (*models.Game, error)
-	PlayerMakeMove(context.Context, int64, int64, int) error
+	GetOpenRooms(context.Context, string) ([]*models.Room, error)
+	CreateRoom(context.Context, *models.Room) (uuid.UUID, error)
+	PlayerJoinRoom(context.Context, uuid.UUID, uuid.UUID) error
+	PlayerLeaveRoom(context.Context, uuid.UUID, uuid.UUID) error
+	CreateGame(context.Context, uuid.UUID, uuid.UUID) (uuid.UUID, error)
+	GetGameState(context.Context, uuid.UUID, uuid.UUID) (*models.Game, error)
+	PlayerMakeMove(context.Context, uuid.UUID, uuid.UUID, int) error
 }
 
 type gameEngineServiceImpl struct {
@@ -47,25 +48,25 @@ func (s *gameEngineServiceImpl) roomRepositoryFactory(q repository.Querier) repo
 	return repository.NewRoomRepository(q)
 }
 
-func (g *gameEngineServiceImpl) GetOpenRooms(ctx context.Context, host string, title string, description string, phase models.RoomPhase) ([]*models.Room, error) {
-	return g.roomRepositoryFactory(g.db).GetList(ctx, host, title, description, phase)
+func (g *gameEngineServiceImpl) GetOpenRooms(ctx context.Context, keyword string) ([]*models.Room, error) {
+	return g.roomRepositoryFactory(g.db).GetList(ctx, keyword, models.RoomPhaseOpen)
 }
 
-func (g *gameEngineServiceImpl) CreateRoom(ctx context.Context, room *models.Room) (id int64, err error) {
+func (g *gameEngineServiceImpl) CreateRoom(ctx context.Context, room *models.Room) (id uuid.UUID, err error) {
 	roomRepository := g.roomRepositoryFactory(g.db)
 	err = g.validateCreateRoom(ctx, roomRepository, room, room.Host.ID)
 	if err != nil {
-		return 0, err
+		return uuid.Nil, err
 	}
 
 	id, err = roomRepository.Create(ctx, room)
 	if err != nil {
-		return 0, nil
+		return uuid.Nil, nil
 	}
 	return id, nil
 }
 
-func (g *gameEngineServiceImpl) validateCreateRoom(ctx context.Context, roomRepository repository.RoomRepository, room *models.Room, playerID int64) error {
+func (g *gameEngineServiceImpl) validateCreateRoom(ctx context.Context, roomRepository repository.RoomRepository, room *models.Room, playerID uuid.UUID) error {
 	playerRoom, err := roomRepository.GetByPlayerID(ctx, playerID)
 	if err != nil && !models.IsNotFoundError(err) {
 		return err
@@ -82,7 +83,7 @@ func (g *gameEngineServiceImpl) validateCreateRoom(ctx context.Context, roomRepo
 	return nil
 }
 
-func (g *gameEngineServiceImpl) PlayerJoinRoom(ctx context.Context, roomID int64, playerID int64) error {
+func (g *gameEngineServiceImpl) PlayerJoinRoom(ctx context.Context, roomID uuid.UUID, playerID uuid.UUID) error {
 	return withTransaction(ctx, g.db, func(tx *sql.Tx) error {
 		roomRepository := g.roomRepositoryFactory(tx)
 		room, err := roomRepository.Get(ctx, roomID, true)
@@ -95,9 +96,9 @@ func (g *gameEngineServiceImpl) PlayerJoinRoom(ctx context.Context, roomID int64
 			return err
 		}
 
-		room.Guest = &models.RoomParticipant{
-			ID:       playerID,
-			Continue: true,
+		room.Guest = &models.RoomPlayer{
+			ID:             playerID,
+			RequestNewGame: true,
 		}
 
 		gameRepository := g.gameRepositoryFactory(tx)
@@ -116,7 +117,7 @@ func (g *gameEngineServiceImpl) PlayerJoinRoom(ctx context.Context, roomID int64
 	})
 }
 
-func (g *gameEngineServiceImpl) validatePlayerJoinRoom(ctx context.Context, roomRepository repository.RoomRepository, room *models.Room, playerID int64) error {
+func (g *gameEngineServiceImpl) validatePlayerJoinRoom(ctx context.Context, roomRepository repository.RoomRepository, room *models.Room, playerID uuid.UUID) error {
 	if room.Guest != nil && room.Guest.ID != playerID && room.Phase == models.RoomPhaseFull {
 		return models.NewValidationError("room is full")
 	}
@@ -143,7 +144,7 @@ func (g *gameEngineServiceImpl) validatePlayerJoinRoom(ctx context.Context, room
 	return nil
 }
 
-func (g *gameEngineServiceImpl) PlayerLeaveRoom(ctx context.Context, roomID int64, playerID int64) (err error) {
+func (g *gameEngineServiceImpl) PlayerLeaveRoom(ctx context.Context, roomID uuid.UUID, playerID uuid.UUID) (err error) {
 	return withTransaction(ctx, g.db, func(tx *sql.Tx) error {
 		roomRepository := g.roomRepositoryFactory(tx)
 
@@ -215,7 +216,7 @@ func (g *gameEngineServiceImpl) PlayerLeaveRoom(ctx context.Context, roomID int6
 	})
 }
 
-func (g *gameEngineServiceImpl) validatePlayerLeaveRoom(room *models.Room, playerID int64) error {
+func (g *gameEngineServiceImpl) validatePlayerLeaveRoom(room *models.Room, playerID uuid.UUID) error {
 	if room.Host.ID != playerID &&
 		(room.Guest == nil || room.Guest.ID != playerID) {
 		return models.NewValidationErrorf("player is not part of the room")
@@ -224,34 +225,34 @@ func (g *gameEngineServiceImpl) validatePlayerLeaveRoom(room *models.Room, playe
 	return nil
 }
 
-func (g *gameEngineServiceImpl) CreateGame(ctx context.Context, roomID int64, playerID int64) (int64, error) {
-	return withTransactionT(ctx, g.db, func(tx *sql.Tx) (int64, error) {
+func (g *gameEngineServiceImpl) CreateGame(ctx context.Context, roomID uuid.UUID, playerID uuid.UUID) (uuid.UUID, error) {
+	return withTransactionT(ctx, g.db, func(tx *sql.Tx) (uuid.UUID, error) {
 		roomRepository := g.roomRepositoryFactory(tx)
 		room, err := roomRepository.Get(ctx, roomID, true)
 		if err != nil {
-			return 0, err
+			return uuid.Nil, err
 		}
 
 		gameRepository := g.gameRepositoryFactory(tx)
 		err = g.validateCreateGame(ctx, gameRepository, room, playerID)
 		if err != nil {
-			return 0, err
+			return uuid.Nil, err
 		}
 
 		if playerID == room.Host.ID {
-			room.Host.Continue = true
+			room.Host.RequestNewGame = true
 		}
 
 		if room.Guest != nil && room.Guest.ID == playerID {
-			room.Guest.Continue = true
+			room.Guest.RequestNewGame = true
 		}
 
-		var gameID int64
+		var gameID uuid.UUID
 		if room.Guest != nil {
-			if room.Guest.Continue && room.Host.Continue {
+			if room.Guest.RequestNewGame && room.Host.RequestNewGame {
 				err := g.createGame(ctx, gameRepository, room)
 				if err != nil {
-					return 0, err
+					return uuid.Nil, err
 				}
 
 				gameID = *room.GameID
@@ -260,13 +261,13 @@ func (g *gameEngineServiceImpl) CreateGame(ctx context.Context, roomID int64, pl
 
 		err = roomRepository.Update(ctx, room)
 		if err != nil {
-			return 0, err
+			return uuid.Nil, err
 		}
 		return gameID, nil
 	})
 }
 
-func (g *gameEngineServiceImpl) validateCreateGame(ctx context.Context, gameRepository repository.GameRepository, room *models.Room, playerID int64) error {
+func (g *gameEngineServiceImpl) validateCreateGame(ctx context.Context, gameRepository repository.GameRepository, room *models.Room, playerID uuid.UUID) error {
 	if room.Host.ID != playerID &&
 		(room.Guest == nil || room.Guest.ID != playerID) {
 		return models.NewValidationErrorf("player is not part of the room")
@@ -285,7 +286,7 @@ func (g *gameEngineServiceImpl) validateCreateGame(ctx context.Context, gameRepo
 	return nil
 }
 
-func (g *gameEngineServiceImpl) GetGameState(ctx context.Context, roomID int64, playerID int64) (*models.Game, error) {
+func (g *gameEngineServiceImpl) GetGameState(ctx context.Context, roomID uuid.UUID, playerID uuid.UUID) (*models.Game, error) {
 	roomRepository := g.roomRepositoryFactory(g.db)
 	room, err := roomRepository.Get(ctx, roomID, false)
 	if err != nil {
@@ -305,7 +306,7 @@ func (g *gameEngineServiceImpl) GetGameState(ctx context.Context, roomID int64, 
 	return game, nil
 }
 
-func (g *gameEngineServiceImpl) validateGetGameState(room *models.Room, playerID int64) error {
+func (g *gameEngineServiceImpl) validateGetGameState(room *models.Room, playerID uuid.UUID) error {
 	if room.Host.ID != playerID &&
 		(room.Guest == nil || room.Guest.ID != playerID) {
 		return models.NewValidationError("player is not part of the room")
@@ -314,7 +315,7 @@ func (g *gameEngineServiceImpl) validateGetGameState(room *models.Room, playerID
 	return nil
 }
 
-func (g *gameEngineServiceImpl) PlayerMakeMove(ctx context.Context, roomID int64, playerID int64, position int) error {
+func (g *gameEngineServiceImpl) PlayerMakeMove(ctx context.Context, roomID uuid.UUID, playerID uuid.UUID, position int) error {
 	return withTransaction(ctx, g.db, func(tx *sql.Tx) error {
 		roomRepository := g.roomRepositoryFactory(tx)
 		room, err := roomRepository.Get(ctx, roomID, true)
@@ -334,9 +335,9 @@ func (g *gameEngineServiceImpl) PlayerMakeMove(ctx context.Context, roomID int64
 				return err
 			}
 
-			mark := []byte(game.HostMark)[0]
+			mark := []byte(game.Host.Mark)[0]
 			if playerID != room.Host.ID {
-				mark = []byte(game.GuestMark)[0]
+				mark = []byte(game.Guest.Mark)[0]
 			}
 
 			boardBytes := []byte(game.Board)
@@ -378,10 +379,10 @@ func (g *gameEngineServiceImpl) PlayerMakeMove(ctx context.Context, roomID int64
 					return err
 				}
 			} else {
-				if game.CurrentPlayerID == game.HostID {
-					game.CurrentPlayerID = game.GuestID
+				if game.CurrentPlayerID == game.Host.ID {
+					game.CurrentPlayerID = game.Guest.ID
 				} else {
-					game.CurrentPlayerID = game.HostID
+					game.CurrentPlayerID = game.Host.ID
 				}
 			}
 
@@ -395,8 +396,8 @@ func (g *gameEngineServiceImpl) PlayerMakeMove(ctx context.Context, roomID int64
 	})
 }
 
-func (g *gameEngineServiceImpl) validatePlayerMakeMove(game *models.Game, playerID int64, position int) error {
-	if game.HostID != playerID && game.GuestID != playerID {
+func (g *gameEngineServiceImpl) validatePlayerMakeMove(game *models.Game, playerID uuid.UUID, position int) error {
+	if game.Host.ID != playerID && game.Guest.ID != playerID {
 		return models.NewValidationError("player is not part of the game")
 	}
 
@@ -428,8 +429,8 @@ func (g *gameEngineServiceImpl) createGame(ctx context.Context, gameRepository r
 		return err
 	}
 	room.GameID = &game.ID
-	room.Host.Continue = false
-	room.Guest.Continue = false
+	room.Host.RequestNewGame = false
+	room.Guest.RequestNewGame = false
 
 	return nil
 }
@@ -439,13 +440,11 @@ func (g *gameEngineServiceImpl) initializeGame(ctx context.Context, gameReposito
 	rand.Shuffle(len(marks), func(i, j int) {
 		marks[i], marks[j] = marks[j], marks[i]
 	})
-	playerIDs := []int64{room.Host.ID, room.Guest.ID}
+	playerIDs := []uuid.UUID{room.Host.ID, room.Guest.ID}
 
 	game := &models.Game{
-		HostID:          room.Host.ID,
-		HostMark:        string(marks[0]),
-		GuestID:         room.Guest.ID,
-		GuestMark:       string(marks[1]),
+		Host:            models.GamePlayer{ID: room.Host.ID, Mark: string(marks[0])},
+		Guest:           models.GamePlayer{ID: room.Guest.ID, Mark: string(marks[1])},
 		CurrentPlayerID: playerIDs[rand.IntN(2)],
 		Board:           defaultBoard,
 		Phase:           models.GamePhaseInProgress,
@@ -457,9 +456,9 @@ func (g *gameEngineServiceImpl) initializeGame(ctx context.Context, gameReposito
 			return nil, err
 		}
 
-		if prevGame.HostID == room.Host.ID && prevGame.GuestID == room.Guest.ID {
-			game.HostMark = prevGame.HostMark
-			game.GuestMark = prevGame.GuestMark
+		if prevGame.Host.ID == room.Host.ID && prevGame.Guest.ID == room.Guest.ID {
+			game.Host.Mark = prevGame.Host.Mark
+			game.Guest.Mark = prevGame.Guest.Mark
 
 			game.CurrentPlayerID = room.Host.ID
 			if prevGame.CurrentPlayerID == room.Host.ID {

@@ -1,20 +1,16 @@
 --INITIAL SQL
-CREATE SEQUENCE IF NOT EXISTS players_id_seq;
 CREATE TABLE IF NOT EXISTS players (
-    id integer NOT NULL DEFAULT nextval('players_id_seq'),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     login varchar(256) NOT NULL,
     password VARCHAR(60) NOT NULL,
     nickname varchar(30) NOT NULL,
        
-    CONSTRAINT players_pk PRIMARY KEY(id),
     UNIQUE(login),
     UNIQUE(nickname)
 );
-ALTER SEQUENCE players_id_seq
-OWNED BY players.id;
 
 CREATE TABLE IF NOT EXISTS players_stats (
-    player_id INTEGER PRIMARY KEY,
+    player_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     wins INTEGER NOT NULL DEFAULT 0,
     losses INTEGER NOT NULL DEFAULT 0,
     draws INTEGER NOT NULL DEFAULT 0,
@@ -24,11 +20,12 @@ CREATE TABLE IF NOT EXISTS players_stats (
 
 
 CREATE TABLE IF NOT EXISTS rooms (
-    host_id INTEGER PRIMARY KEY,
-    host_continue BOOLEAN NOT NULL DEFAULT false,
-    guest_id INTEGER,
-    guest_continue BOOLEAN NOT NULL DEFAULT false,
-    game_id INTEGER,     
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    host_id UUID NOT NULL,
+    host_request_new_game BOOLEAN NOT NULL DEFAULT false,
+    guest_id UUID,
+    guest_request_new_game BOOLEAN NOT NULL DEFAULT false,
+    game_id UUID,     
     title VARCHAR(30) NOT NULL,
     description VARCHAR(150),
     phase INTEGER NOT NULL DEFAULT 0,
@@ -38,16 +35,15 @@ CREATE TABLE IF NOT EXISTS rooms (
     UNIQUE(guest_id)
 );
 
-CREATE SEQUENCE IF NOT EXISTS games_id_seq;
 CREATE TABLE IF NOT EXISTS games (
-    id BIGINT NOT NULL DEFAULT nextval('games_id_seq'),
-    host_id INTEGER NOT NULL,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    host_id UUID NOT NULL,
     host_mark CHAR(1) NOT NULL,
-    guest_id INTEGER NOT NULL,
+    guest_id UUID NOT NULL,
     guest_mark CHAR(1) NOT NULL,
-    current_player_id INTEGER NOT NULL,
+    current_player_id UUID NOT NULL,
     board TEXT NOT NULL DEFAULT '_________',
-    winner_id INTEGER,
+    winner_id UUID,
     phase INTEGER NOT NULL DEFAULT 0,
     
     CONSTRAINT games_pk PRIMARY KEY(id),
@@ -58,8 +54,6 @@ CREATE TABLE IF NOT EXISTS games (
     CHECK (host_mark IN ('X', 'O')),
     CHECK (guest_mark IN ('X', 'O'))
 );
-ALTER SEQUENCE games_id_seq
-OWNED BY games.id;
 
 ALTER TABLE rooms DROP CONSTRAINT IF EXISTS rooms_fk_game;
 ALTER TABLE rooms ADD CONSTRAINT rooms_fk_game FOREIGN KEY (game_id) REFERENCES games(id);
