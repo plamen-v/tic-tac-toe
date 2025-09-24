@@ -200,18 +200,30 @@ func (g *gameEngineServiceImpl) PlayerLeaveRoom(ctx context.Context, roomID uuid
 			}
 		}
 
+		emptyRoom := false
 		if playerIsHost {
+			if room.Guest != nil {
+				room.Host = *room.Guest
+				room.Guest = nil
+			} else {
+				emptyRoom = true
+			}
+		} else {
+			room.Guest = nil
+		}
+
+		if emptyRoom {
 			err = roomRepository.Delete(ctx, room.Host.ID)
 			if err != nil {
 				return err
 			}
 		} else {
-			room.Guest = nil
 			err = roomRepository.Update(ctx, room)
 			if err != nil {
 				return err
 			}
 		}
+
 		return nil
 	})
 }
