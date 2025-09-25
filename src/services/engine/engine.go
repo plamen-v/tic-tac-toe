@@ -310,17 +310,16 @@ func (g *gameEngineServiceImpl) GetGameState(ctx context.Context, roomID uuid.UU
 		return nil, err
 	}
 
+	gameID := uuid.Nil
 	if room.GameID != nil {
-		gameRepository := g.gameRepositoryFactory(g.db)
-		game, err := gameRepository.Get(ctx, *room.GameID)
-		if err != nil {
-			return nil, err
-		}
-		return game, nil
+		gameID = *room.GameID
 	}
-
-	return nil, models.NewNotFoundError("game not found")
-
+	gameRepository := g.gameRepositoryFactory(g.db)
+	game, err := gameRepository.Get(ctx, gameID)
+	if err != nil {
+		return nil, err
+	}
+	return game, nil
 }
 
 func (g *gameEngineServiceImpl) validateGetGameState(room *models.Room, playerID uuid.UUID) error {
