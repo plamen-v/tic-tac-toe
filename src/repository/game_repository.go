@@ -49,11 +49,12 @@ func (r *gameRepositoryImpl) Get(ctx context.Context, id uuid.UUID) (*models.Gam
 		&game.ID, &game.Host.ID, &game.Host.Mark,
 		&game.Guest.ID, &game.Guest.Mark, &game.CurrentPlayerID,
 		&game.Board, &winnerID, &game.Phase)
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, models.NewNotFoundErrorf("game with id equal to %d not exist", id)
 		} else {
-			return nil, models.NewGenericErrorWithCause("game not selected", err)
+			return nil, models.NewGenericErrorWithCause("record scan error", err)
 		}
 	}
 
@@ -100,12 +101,9 @@ func (r *gameRepositoryImpl) Update(ctx context.Context, game *models.Game) erro
 	if err != nil {
 		return models.NewGenericErrorWithCause("game update failed", err)
 	}
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return models.NewGenericErrorWithCause("could not get rows affected", err)
-	}
-	if rowsAffected == 0 {
-		return models.NewGenericErrorWithCause("no game was deleted", err)
+
+	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
+		return models.NewGenericError("no game was updated")
 	}
 
 	return err

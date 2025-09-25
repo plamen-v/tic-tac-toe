@@ -44,7 +44,7 @@ func (r *playerRepositoryImpl) Get(ctx context.Context, id uuid.UUID) (*models.P
 		if err == sql.ErrNoRows {
 			return nil, models.NewNotFoundError("player not exist")
 		} else {
-			return nil, models.NewGenericErrorWithCause("player not selected", err) //todo!
+			return nil, models.NewGenericErrorWithCause("record scan error", err)
 		}
 	}
 
@@ -69,7 +69,7 @@ func (r *playerRepositoryImpl) GetByLogin(ctx context.Context, login string) (*m
 		if err == sql.ErrNoRows {
 			return nil, models.NewNotFoundError("player not exist")
 		} else {
-			return nil, models.NewGenericErrorWithCause("player not selected", err) //todo!
+			return nil, models.NewGenericErrorWithCause("record scan error", err)
 		}
 	}
 
@@ -89,12 +89,9 @@ func (r *playerRepositoryImpl) UpdateStats(ctx context.Context, player *models.P
 	if err != nil {
 		return models.NewGenericErrorWithCause("player not updated", err)
 	}
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return models.NewGenericErrorWithCause("player not updated", err)
-	}
-	if rowsAffected != 1 {
-		return models.NewGenericErrorWithCause("player not updated", err)
+
+	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
+		return models.NewGenericError("no player was updated")
 	}
 
 	return err

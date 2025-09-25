@@ -213,7 +213,7 @@ func (g *gameEngineServiceImpl) PlayerLeaveRoom(ctx context.Context, roomID uuid
 		}
 
 		if emptyRoom {
-			err = roomRepository.Delete(ctx, room.Host.ID)
+			err = roomRepository.Delete(ctx, room.ID)
 			if err != nil {
 				return err
 			}
@@ -310,12 +310,17 @@ func (g *gameEngineServiceImpl) GetGameState(ctx context.Context, roomID uuid.UU
 		return nil, err
 	}
 
-	gameRepository := g.gameRepositoryFactory(g.db)
-	game, err := gameRepository.Get(ctx, *room.GameID)
-	if err != nil {
-		return nil, err
+	if room.GameID != nil {
+		gameRepository := g.gameRepositoryFactory(g.db)
+		game, err := gameRepository.Get(ctx, *room.GameID)
+		if err != nil {
+			return nil, err
+		}
+		return game, nil
 	}
-	return game, nil
+
+	return nil, models.NewNotFoundError("game not found")
+
 }
 
 func (g *gameEngineServiceImpl) validateGetGameState(room *models.Room, playerID uuid.UUID) error {

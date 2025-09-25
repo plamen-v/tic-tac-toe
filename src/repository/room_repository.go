@@ -36,6 +36,7 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id uuid.UUID, lock bool) (
 	}
 	sqlStr := fmt.Sprintf(`
 		SELECT 
+			r.id,
 			ph.id AS host_id, 
 			ph.nickname AS host_nickname,
 			r.host_request_new_game, 
@@ -49,7 +50,7 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id uuid.UUID, lock bool) (
 		FROM rooms AS r
 		INNER JOIN players AS ph ON ph.id = r.host_id
 		LEFT JOIN players AS pg ON pg.id = r.guest_id
-		WHERE r.host_id = $1
+		WHERE r.id = $1
 		%s;`, lockCmd)
 
 	row := r.db.QueryRowContext(ctx, sqlStr, id)
@@ -64,6 +65,7 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id uuid.UUID, lock bool) (
 
 	room := &models.Room{}
 	err := row.Scan(
+		&room.ID,
 		&room.Host.ID,
 		&room.Host.Nickname,
 		&room.Host.RequestNewGame,
@@ -79,7 +81,7 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id uuid.UUID, lock bool) (
 		if err == sql.ErrNoRows {
 			return nil, models.NewNotFoundError("room not exist")
 		} else {
-			return nil, models.NewGenericErrorWithCause("room select failed", err)
+			return nil, models.NewGenericErrorWithCause("record scan error", err)
 		}
 	}
 
@@ -111,10 +113,10 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID uuid.UU
 		SELECT 
 			ph.id AS host_id, 
 			ph.nickname AS host_nickname,
-			r.host_continue, 
+			r.host_request_new_game, 
 			pg.id AS guest_id, 
 			pg.nickname AS guest_nickname,
-			r.guest_continue,
+			r.guest_request_new_game,
 			r.game_id, 
 			r.title, 
 			r.description, 
@@ -152,7 +154,7 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID uuid.UU
 		if err == sql.ErrNoRows {
 			return nil, models.NewNotFoundError("room not exist")
 		} else {
-			return nil, models.NewGenericErrorWithCause("room select failed", err)
+			return nil, models.NewGenericErrorWithCause("record scan error", err)
 		}
 	}
 
@@ -203,7 +205,7 @@ func (r *roomRepositoryImpl) GetList(ctx context.Context, keyword string, phase 
 
 	rows, err := r.db.QueryContext(ctx, sqlStr, phase, keywordArg)
 	if err != nil {
-		return nil, models.NewGenericErrorWithCause("rooms select failed", err)
+		return nil, models.NewGenericErrorWithCause("query failed ", err)
 	}
 	defer rows.Close()
 
@@ -223,7 +225,6 @@ func (r *roomRepositoryImpl) GetList(ctx context.Context, keyword string, phase 
 		rooms = append(rooms, room)
 	}
 
-	// check for errors during iteration
 	if err = rows.Err(); err != nil {
 		return nil, models.NewGenericErrorWithCause("rooms iteration error", err)
 	}
@@ -249,12 +250,13 @@ func (r *roomRepositoryImpl) Create(ctx context.Context, room *models.Room) (uui
 func (r *roomRepositoryImpl) Update(ctx context.Context, room *models.Room) error {
 	sqlStr := `
 		UPDATE rooms
-		SET host_continue  = $2,
-			guest_id       = $3,
-			guest_continue = $4,
-			game_id 	   = $5,
-			phase 		   = $6 
-		WHERE id     	   = $1
+		SET host_id       		   = $2,
+			host_request_new_game  = $3,
+			guest_id       		   = $4,
+			guest_request_new_game = $5,
+			game_id         	   = $6,
+			phase 		           = $7 
+		WHERE id     	           = $1
 		`
 	var (
 		sqlGuestID             uuid.NullUUID
@@ -267,15 +269,12 @@ func (r *roomRepositoryImpl) Update(ctx context.Context, room *models.Room) erro
 		sqlGuestRequestNewGame = room.Guest.RequestNewGame
 	}
 
-	result, err := r.db.ExecContext(ctx, sqlStr, room.Host.ID, room.Host.RequestNewGame, sqlGuestID, sqlGuestRequestNewGame, room.GameID, room.Phase)
+	result, err := r.db.ExecContext(ctx, sqlStr, room.ID, room.Host.ID, room.Host.RequestNewGame, sqlGuestID, sqlGuestRequestNewGame, room.GameID, room.Phase)
 	if err != nil {
 		return models.NewGenericErrorWithCause("room update failed", err)
 	}
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return models.NewGenericErrorWithCause("could not get rows affected", err)
-	}
-	if rowsAffected == 0 {
+
+	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
 		return models.NewGenericError("no room was updated")
 	}
 
@@ -289,11 +288,8 @@ func (r *roomRepositoryImpl) Delete(ctx context.Context, id uuid.UUID) error {
 	if err != nil {
 		return models.NewGenericErrorWithCause("room deletion failed", err)
 	}
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return models.NewGenericErrorWithCause("could not get rows affected", err)
-	}
-	if rowsAffected == 0 {
+
+	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
 		return models.NewGenericError("no room was deleted")
 	}
 
