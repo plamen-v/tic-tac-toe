@@ -46,7 +46,6 @@ CREATE TABLE IF NOT EXISTS games (
     winner_id UUID,
     phase INTEGER NOT NULL DEFAULT 0,
     
-    CONSTRAINT games_pk PRIMARY KEY(id),
     CONSTRAINT games_fk_host FOREIGN KEY (host_id) REFERENCES players(id),
     CONSTRAINT games_fk_guest FOREIGN KEY (guest_id) REFERENCES players(id),
     CONSTRAINT games_fk_current_player FOREIGN KEY (current_player_id) REFERENCES players(id),
