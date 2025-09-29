@@ -18,7 +18,6 @@ CREATE TABLE IF NOT EXISTS players_stats (
     CONSTRAINT players_stats_fk_player FOREIGN KEY (player_id) REFERENCES players(id)
 );
 
-
 CREATE TABLE IF NOT EXISTS rooms (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     host_id UUID NOT NULL,
@@ -32,6 +31,7 @@ CREATE TABLE IF NOT EXISTS rooms (
     
     CONSTRAINT rooms_fk_host FOREIGN KEY (host_id) REFERENCES players(id),
     CONSTRAINT rooms_fk_guest FOREIGN KEY (guest_id) REFERENCES players(id),
+    UNIQUE(host_id),
     UNIQUE(guest_id)
 );
 
@@ -56,3 +56,27 @@ CREATE TABLE IF NOT EXISTS games (
 
 ALTER TABLE rooms DROP CONSTRAINT IF EXISTS rooms_fk_game;
 ALTER TABLE rooms ADD CONSTRAINT rooms_fk_game FOREIGN KEY (game_id) REFERENCES games(id);
+
+
+CREATE OR REPLACE FUNCTION validate_room_players()
+RETURNS trigger AS $$
+BEGIN
+    IF EXISTS(
+        SELECT 1 FROM rooms WHERE host_id = NEW.guest_id
+    ) THEN
+        RAISE EXCEPTION 'Guest % is already a host of a room', NEW.guest_id;
+    END IF;
+
+    IF EXISTS(
+        SELECT 1 FROM rooms WHERE guest_id = NEW.host_id
+    ) THEN
+        RAISE EXCEPTION 'Host % is already a guest in a room', NEW.host_id;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tg_validate_room_players
+BEFORE INSERT OR UPDATE ON rooms
+FOR EACH ROW EXECUTE FUNCTION validate_room_players();

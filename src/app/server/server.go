@@ -85,6 +85,7 @@ func (s *apiServerImpl) setEndpoints(engine *gin.Engine) {
 	game.POST("rooms/:roomId/game", handlers.CreateGameHandler(s.gameEngineService))
 	game.GET("rooms/:roomId/game/", handlers.GetGameStateHandler(s.gameEngineService))
 	game.POST("rooms/:roomId/game/board/:position", handlers.MakeMoveHandler(s.gameEngineService))
+	game.GET("rank", handlers.GetRankingHandler(s.gameEngineService))
 }
 
 func setServerMode(mode config.AppMode) {

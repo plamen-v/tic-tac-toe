@@ -1,5 +1,5 @@
-//go:build mock
-// +build mock
+////go:build mock
+//// +build mock
 
 package mocks
 

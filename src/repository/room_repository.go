@@ -13,7 +13,7 @@ import (
 type RoomRepository interface {
 	Get(context.Context, uuid.UUID, bool) (*models.Room, error)
 	GetByPlayerID(context.Context, uuid.UUID) (*models.Room, error)
-	GetList(context.Context, string, models.RoomPhase) ([]*models.Room, error)
+	GetList(context.Context, models.RoomPhase) ([]*models.Room, error)
 	Create(context.Context, *models.Room) (uuid.UUID, error)
 	Update(context.Context, *models.Room) error
 	Delete(context.Context, uuid.UUID) error
@@ -181,7 +181,7 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID uuid.UU
 	return room, nil
 }
 
-func (r *roomRepositoryImpl) GetList(ctx context.Context, keyword string, phase models.RoomPhase) ([]*models.Room, error) {
+func (r *roomRepositoryImpl) GetList(ctx context.Context, phase models.RoomPhase) ([]*models.Room, error) {
 	sqlStr := `
 		SELECT 
 			ph.id AS host_id, 
@@ -192,18 +192,9 @@ func (r *roomRepositoryImpl) GetList(ctx context.Context, keyword string, phase 
 		FROM rooms AS r
 		INNER JOIN players AS ph ON ph.id = r.host_id
 		WHERE (r.phase = $1)
-		AND (($2::text IS NULL OR r.title LIKE $2)
-			OR ($3::text IS NULL OR r.description LIKE $2)
-			OR ($4::text IS NULL OR  ph.nickname LIKE $2))
 		`
 
-	var keywordArg sql.NullString
-	if keyword != "" {
-		keywordArg.String = fmt.Sprintf("%%%s%%", keyword)
-		keywordArg.Valid = true
-	}
-
-	rows, err := r.db.QueryContext(ctx, sqlStr, phase, keywordArg)
+	rows, err := r.db.QueryContext(ctx, sqlStr, phase)
 	if err != nil {
 		return nil, models.NewGenericErrorWithCause("query failed ", err)
 	}

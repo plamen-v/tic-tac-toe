@@ -19,13 +19,14 @@ const (
 )
 
 type GameEngineService interface {
-	GetOpenRooms(context.Context, string) ([]*models.Room, error)
+	GetOpenRooms(context.Context) ([]*models.Room, error)
 	CreateRoom(context.Context, *models.Room) (uuid.UUID, error)
 	PlayerJoinRoom(context.Context, uuid.UUID, uuid.UUID) error
 	PlayerLeaveRoom(context.Context, uuid.UUID, uuid.UUID) error
 	CreateGame(context.Context, uuid.UUID, uuid.UUID) (uuid.UUID, error)
 	GetGameState(context.Context, uuid.UUID, uuid.UUID) (*models.Game, error)
 	PlayerMakeMove(context.Context, uuid.UUID, uuid.UUID, int) error
+	GetRanking(context.Context) ([]*models.Player, error)
 }
 
 type gameEngineServiceImpl struct {
@@ -48,8 +49,8 @@ func (s *gameEngineServiceImpl) roomRepositoryFactory(q repository.Querier) repo
 	return repository.NewRoomRepository(q)
 }
 
-func (g *gameEngineServiceImpl) GetOpenRooms(ctx context.Context, keyword string) ([]*models.Room, error) {
-	return g.roomRepositoryFactory(g.db).GetList(ctx, keyword, models.RoomPhaseOpen)
+func (g *gameEngineServiceImpl) GetOpenRooms(ctx context.Context) ([]*models.Room, error) {
+	return g.roomRepositoryFactory(g.db).GetList(ctx, models.RoomPhaseOpen)
 }
 
 func (g *gameEngineServiceImpl) CreateRoom(ctx context.Context, room *models.Room) (id uuid.UUID, err error) {
@@ -410,6 +411,16 @@ func (g *gameEngineServiceImpl) PlayerMakeMove(ctx context.Context, roomID uuid.
 
 		return nil
 	})
+}
+
+func (g *gameEngineServiceImpl) GetRanking(ctx context.Context) ([]*models.Player, error) {
+	playerRepository := g.playerRepositoryFactory(g.db)
+	players, err := playerRepository.GetRanking(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return players, nil
 }
 
 func (g *gameEngineServiceImpl) validatePlayerMakeMove(game *models.Game, playerID uuid.UUID, position int) error {

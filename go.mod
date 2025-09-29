@@ -54,4 +54,4 @@ require (
 	google.golang.org/protobuf v1.36.8 // indirect
 )
 
-//replace github.com/plamen-v/tic-tac-toe-models => ../tic-tac-toe-models
+replace github.com/plamen-v/tic-tac-toe-models => ../tic-tac-toe-models

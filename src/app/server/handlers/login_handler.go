@@ -32,10 +32,10 @@ func LoginHandler(authService auth.AuthenticationService) func(*gin.Context) {
 
 		c.Header(auth.AUTHORIZATION_HEADER, fmt.Sprintf("%s%s", auth.AUTHORIZATION_HEADER_PREFIX, tokenStr))
 
-		response := models.Response{
-			StatusCode: http.StatusOK,
-			Payload:    player}
+		response := models.LoginResponse{
+			Player: player,
+		}
 
-		c.JSON(response.StatusCode, response)
+		c.JSON(http.StatusOK, response)
 	}
 }

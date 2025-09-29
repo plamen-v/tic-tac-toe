@@ -67,12 +67,11 @@ var _ = Describe("ErrorHandler", func() {
 		router.ServeHTTP(w, request)
 		Expect(w.Code).To(Equal(http.StatusNotFound))
 
-		var resp models.Response
+		var resp models.ErrorResponse
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		Expect(err).To(BeNil())
 
-		Expect(resp.Error).To(Not(BeNil()))
-		Expect(*&resp.Error.Code).To(Equal(string(models.NotFoundErrorCode)))
+		Expect(*&resp.Code).To(Equal(string(models.NotFoundErrorCode)))
 	})
 
 	It("should return ValidationError error", func() {
@@ -83,12 +82,11 @@ var _ = Describe("ErrorHandler", func() {
 		router.ServeHTTP(w, request)
 		Expect(w.Code).To(Equal(http.StatusBadRequest))
 
-		var resp models.Response
+		var resp models.ErrorResponse
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		Expect(err).To(BeNil())
 
-		Expect(resp.Error).To(Not(BeNil()))
-		Expect(*&resp.Error.Code).To(Equal(string(models.BadRequestErrorCode)))
+		Expect(*&resp.Code).To(Equal(string(models.BadRequestErrorCode)))
 	})
 
 	It("should return AuthorizationError error", func() {
@@ -99,12 +97,11 @@ var _ = Describe("ErrorHandler", func() {
 		router.ServeHTTP(w, request)
 		Expect(w.Code).To(Equal(http.StatusUnauthorized))
 
-		var resp models.Response
+		var resp models.ErrorResponse
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		Expect(err).To(BeNil())
 
-		Expect(resp.Error).To(Not(BeNil()))
-		Expect(*&resp.Error.Code).To(Equal(string(models.UnauthorizedErrorCode)))
+		Expect(*&resp.Code).To(Equal(string(models.UnauthorizedErrorCode)))
 	})
 
 	It("should return GenericError error", func() {
@@ -115,12 +112,11 @@ var _ = Describe("ErrorHandler", func() {
 		router.ServeHTTP(w, request)
 		Expect(w.Code).To(Equal(http.StatusInternalServerError))
 
-		var resp models.Response
+		var resp models.ErrorResponse
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		Expect(err).To(BeNil())
 
-		Expect(resp.Error).To(Not(BeNil()))
-		Expect(*&resp.Error.Message).To(Equal(string(models.InternalServerErrorMessage)))
+		Expect(*&resp.Message).To(Equal(string(models.InternalServerErrorMessage)))
 	})
 
 	It("should return status 500", func() {

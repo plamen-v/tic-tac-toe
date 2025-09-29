@@ -13,6 +13,7 @@ type PlayerRepository interface {
 	Get(context.Context, uuid.UUID) (*models.Player, error)
 	GetByLogin(context.Context, string) (*models.Player, error)
 	UpdateStats(context.Context, *models.Player) error
+	GetRanking(context.Context) ([]*models.Player, error)
 }
 
 func NewPlayerRepository(db Querier) PlayerRepository {
@@ -27,19 +28,16 @@ type playerRepositoryImpl struct {
 
 func (r *playerRepositoryImpl) Get(ctx context.Context, id uuid.UUID) (*models.Player, error) {
 	sqlStr := `
-		SELECT p.id, p.login, p.password, p.nickname, ps.wins, ps.losses, ps.draws, COALESCE(hr.id, gr.id) AS room_id
+		SELECT p.id, p.login, p.password, p.nickname, ps.wins, ps.losses, ps.draws
 		FROM players AS p
 		LEFT JOIN players_stats ps ON ps.player_id = p.id
-		LEFT JOIN rooms hr ON p.id = hr.host_id 
-		LEFT JOIN rooms gr ON p.id = gr.guest_id
 		WHERE p.id = $1
 		`
 
 	row := r.db.QueryRowContext(ctx, sqlStr, id)
 	player := &models.Player{}
 
-	var sqlRoomID uuid.NullUUID
-	err := row.Scan(&player.ID, &player.Login, &player.Password, &player.Nickname, &player.Stats.Wins, &player.Stats.Losses, &player.Stats.Draws, &sqlRoomID)
+	err := row.Scan(&player.ID, &player.Login, &player.Password, &player.Nickname, &player.Stats.Wins, &player.Stats.Losses, &player.Stats.Draws)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, models.NewNotFoundError("player not exist")
@@ -48,9 +46,6 @@ func (r *playerRepositoryImpl) Get(ctx context.Context, id uuid.UUID) (*models.P
 		}
 	}
 
-	if sqlRoomID.Valid {
-		player.RoomID = &sqlRoomID.UUID
-	}
 	return player, nil
 }
 
@@ -95,4 +90,35 @@ func (r *playerRepositoryImpl) UpdateStats(ctx context.Context, player *models.P
 	}
 
 	return err
+}
+
+func (r *playerRepositoryImpl) GetRanking(ctx context.Context) ([]*models.Player, error) {
+	sqlStr := `
+		SELECT p.id, p.nickname, ps.wins, ps.losses, ps.draws
+		FROM players AS p
+		LEFT JOIN players_stats ps ON ps.player_id = p.id
+		WHERE p.id = $1
+		ORDER BY ps.wins DESC, ps.draws DESC, ps.losses ASC
+		`
+	rows, err := r.db.QueryContext(ctx, sqlStr)
+	if err != nil {
+		return nil, models.NewGenericErrorWithCause("query failed ", err)
+	}
+	defer rows.Close()
+
+	players := make([]*models.Player, 0)
+	for rows.Next() {
+		player := &models.Player{}
+		err := rows.Scan(&player.ID, &player.Nickname, &player.Stats.Wins, &player.Stats.Losses, &player.Stats.Draws)
+		if err != nil {
+			return nil, models.NewGenericErrorWithCause("player scan failed", err)
+		}
+		players = append(players, player)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, models.NewGenericErrorWithCause("players iteration error", err)
+	}
+
+	return players, nil
 }

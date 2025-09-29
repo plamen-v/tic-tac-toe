@@ -38,13 +38,12 @@ func ErrorHandler() gin.HandlerFunc {
 				errorMessage = models.InternalServerErrorMessage
 			}
 
-			response := models.Response{
-				StatusCode: statusCode,
-				Payload:    gin.H{},
-				Error:      models.NewErrorMessage(errorCode, errorMessage),
+			response := models.ErrorResponse{
+				Code:    errorCode,
+				Message: errorMessage,
 			}
 
-			c.JSON(response.StatusCode, response)
+			c.JSON(statusCode, response)
 		}
 	}
 }
