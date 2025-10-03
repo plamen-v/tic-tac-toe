@@ -18,13 +18,7 @@ func LoginHandler(authService auth.AuthenticationService) func(*gin.Context) {
 			return
 		}
 
-		player, err := authService.Authenticate(c.Request.Context(), loginRequest.Login, loginRequest.Password)
-		if err != nil {
-			_ = c.Error(err)
-			return
-		}
-
-		tokenStr, err := authService.CreateToken(player)
+		player, tokenStr, err := authService.Authenticate(c.Request.Context(), loginRequest.Login, loginRequest.Password)
 		if err != nil {
 			_ = c.Error(err)
 			return

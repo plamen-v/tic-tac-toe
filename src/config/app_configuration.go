@@ -61,22 +61,21 @@ func (c *AppConfiguration) SetDefaults() {
 	c.Database.SetDefaults()
 }
 
-// TODO!
 func (c *AppConfiguration) Validate() error {
 	if len(c.AppName) == 0 {
-		return errors.New("") //todo!
+		return errors.New("application name is required")
 	}
 
 	if len(c.Secret) == 0 {
-		return errors.New("") //todo!
+		return errors.New("application secret is required")
 	}
 
 	if err := c.Server.Validate(); err != nil {
-		return errors.New("") //todo!
+		return err
 	}
 
 	if err := c.Database.Validate(); err != nil {
-		return errors.New("") //todo!
+		return err
 	}
 
 	return nil

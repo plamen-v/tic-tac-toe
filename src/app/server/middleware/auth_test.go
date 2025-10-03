@@ -1,6 +1,3 @@
-//go:build mock
-// +build mock
-
 package middleware_test
 
 import (
@@ -9,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gofrs/uuid"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/plamen-v/tic-tac-toe-models/models"
 	"github.com/plamen-v/tic-tac-toe/src/app/server/middleware"
@@ -71,7 +69,7 @@ var _ = Describe("Authentication", func() {
 
 		mockToken := &jwt.Token{
 			Claims: &auth.ExtendedClaims{
-				PlayerID: 1,
+				PlayerID: uuid.NullUUID{UUID: uuid.Must(uuid.NewV4()), Valid: true},
 			},
 			Valid: true,
 		}

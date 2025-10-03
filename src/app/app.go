@@ -41,13 +41,11 @@ func (a *applicationImpl) Start() error {
 	if err := a.initialize(); err != nil {
 		return err
 	}
-	a.logger.Info("OK Bro TODO! HERE")
 	return a.server.Start()
 }
 
 func (a *applicationImpl) Stop(ctx context.Context) error {
 	err := a.finalize(ctx)
-	a.logger.Info("END Bro TODO! HERE")
 	a.logger.Sync()
 	return err
 }

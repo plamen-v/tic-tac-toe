@@ -12,6 +12,28 @@ import (
 	"github.com/plamen-v/tic-tac-toe/src/services/engine"
 )
 
+func GetRoomHandler(gameEngineService engine.GameEngineService) func(*gin.Context) {
+	return func(c *gin.Context) {
+		playerID, ok := getPlayerIDFromContext(c, middleware.KEY_PLAYER_ID)
+		if !ok {
+			_ = c.Error(models.NewValidationError("Missing player_id claim"))
+			return
+		}
+
+		room, err := gameEngineService.GetRoom(c.Request.Context(), playerID)
+		if err != nil {
+			_ = c.Error(err)
+			return
+		}
+
+		response := models.RoomResponse{
+			Room: room,
+		}
+
+		c.JSON(http.StatusOK, response)
+	}
+}
+
 func GetOpenRoomsHandler(gameEngineService engine.GameEngineService) func(*gin.Context) {
 	return func(c *gin.Context) {
 		rooms, err := gameEngineService.GetOpenRooms(c.Request.Context())
@@ -20,7 +42,7 @@ func GetOpenRoomsHandler(gameEngineService engine.GameEngineService) func(*gin.C
 			return
 		}
 
-		response := models.OpenRoomsResponse{
+		response := models.RoomListResponse{
 			Rooms: rooms,
 		}
 
@@ -43,16 +65,7 @@ func CreateRoomHandler(gameEngineService engine.GameEngineService) func(*gin.Con
 			return
 		}
 
-		room := &models.Room{
-			Host: models.RoomPlayer{
-				ID:             playerID,
-				RequestNewGame: true,
-			},
-			Title:       request.Title,
-			Description: request.Description,
-		}
-
-		roomID, err := gameEngineService.CreateRoom(c.Request.Context(), room)
+		roomID, err := gameEngineService.CreateRoom(c.Request.Context(), playerID, request.Title, request.Description)
 		if err != nil {
 			_ = c.Error(err)
 			return
@@ -169,7 +182,7 @@ func GetGameStateHandler(gameEngineService engine.GameEngineService) func(*gin.C
 			return
 		}
 
-		response := models.GameStateResponse{
+		response := models.GameResponse{
 			Game: game,
 		}
 

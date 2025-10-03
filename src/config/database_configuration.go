@@ -1,6 +1,8 @@
 package config
 
-import "fmt"
+import (
+	"errors"
+)
 
 const (
 	DB_PORT int = 5432
@@ -22,19 +24,19 @@ func (c *DatabaseConfiguration) SetDefaults() {
 
 func (c *DatabaseConfiguration) Validate() error {
 	if len(c.User) == 0 {
-		return fmt.Errorf("todo")
+		return errors.New("db user is required")
 	}
 
 	if len(c.Password) == 0 {
-		return fmt.Errorf("todo")
+		return errors.New("db password is required")
 	}
 
 	if len(c.Database) == 0 {
-		return fmt.Errorf("todo")
+		return errors.New("database name is required")
 	}
 
 	if c.Port == 0 {
-		return fmt.Errorf("todo")
+		return errors.New("db port is required")
 	}
 
 	return nil

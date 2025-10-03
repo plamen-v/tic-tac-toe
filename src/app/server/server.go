@@ -53,7 +53,7 @@ func (s *apiServerImpl) initialize() {
 	engine := gin.Default()
 	s.setEndpoints(engine)
 
-	address := fmt.Sprintf("%s:%d", s.config.Server.Host, s.config.Server.Port)
+	address := fmt.Sprintf(":%d", s.config.Server.Port)
 	s.server = &http.Server{
 		Addr:    address,
 		Handler: engine.Handler(),
@@ -78,6 +78,7 @@ func (s *apiServerImpl) setEndpoints(engine *gin.Engine) {
 	game := api.Group("/")
 	game.Use(middleware.Authentication(s.authenticationService))
 
+	game.GET("/room", handlers.GetRoomHandler(s.gameEngineService))
 	game.GET("/rooms", handlers.GetOpenRoomsHandler(s.gameEngineService))
 	game.POST("/rooms", handlers.CreateRoomHandler(s.gameEngineService))
 	game.POST("rooms/:roomId/player", handlers.PlayerJoinRoomHandler(s.gameEngineService))
@@ -85,7 +86,7 @@ func (s *apiServerImpl) setEndpoints(engine *gin.Engine) {
 	game.POST("rooms/:roomId/game", handlers.CreateGameHandler(s.gameEngineService))
 	game.GET("rooms/:roomId/game/", handlers.GetGameStateHandler(s.gameEngineService))
 	game.POST("rooms/:roomId/game/board/:position", handlers.MakeMoveHandler(s.gameEngineService))
-	game.GET("rank", handlers.GetRankingHandler(s.gameEngineService))
+	game.GET("ranking", handlers.GetRankingHandler(s.gameEngineService))
 }
 
 func setServerMode(mode config.AppMode) {

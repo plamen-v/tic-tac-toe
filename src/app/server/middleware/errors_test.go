@@ -1,6 +1,3 @@
-//go:build mock
-// +build mock
-
 package middleware_test
 
 import (

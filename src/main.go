@@ -13,6 +13,7 @@ import (
 
 	"github.com/plamen-v/tic-tac-toe/src/app"
 	"github.com/plamen-v/tic-tac-toe/src/config"
+	"github.com/plamen-v/tic-tac-toe/src/repository"
 	"github.com/plamen-v/tic-tac-toe/src/services/auth"
 	"github.com/plamen-v/tic-tac-toe/src/services/engine"
 	"github.com/plamen-v/tic-tac-toe/src/services/logger"
@@ -43,6 +44,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	err = db.Ping()
+	if err != nil {
+		panic(err)
+	}
 	defer func() {
 		err := db.Close()
 		if err != nil {
@@ -54,7 +59,11 @@ func main() {
 		config,
 		logger,
 		auth.NewAuthenticationService(config, db),
-		engine.NewGameEngineService(db))
+		engine.NewGameEngineService(db,
+			repository.NewPlayerRepository,
+			repository.NewGameRepository,
+			repository.NewRoomRepository,
+		))
 
 	go func() {
 		if err = app.Start(); err != nil {

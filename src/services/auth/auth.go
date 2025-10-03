@@ -20,9 +20,8 @@ const (
 )
 
 type AuthenticationService interface {
-	CreateToken(player *models.Player) (string, error)
 	ValidateToken(token string) (*jwt.Token, error)
-	Authenticate(context.Context, string, string) (*models.Player, error)
+	Authenticate(context.Context, string, string) (*models.Player, string, error)
 }
 
 type ExtendedClaims struct {
@@ -54,7 +53,35 @@ func (s *authenticationServiceImpl) playerRepositoryFactory(q repository.Querier
 	return repository.NewPlayerRepository(q)
 }
 
-func (s *authenticationServiceImpl) CreateToken(player *models.Player) (string, error) {
+func (s *authenticationServiceImpl) ValidateToken(tokenString string) (*jwt.Token, error) {
+	if jwtToken, err := jwt.ParseWithClaims(tokenString, &ExtendedClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(s.config.Secret), nil
+	}); err != nil {
+		return nil, models.NewAuthorizationError(err.Error())
+	} else {
+		return jwtToken, nil
+	}
+}
+
+func (s *authenticationServiceImpl) Authenticate(ctx context.Context, login string, password string) (*models.Player, string, error) {
+	player, err := s.playerRepositoryFactory(s.db).GetByLogin(ctx, login)
+	if err != nil {
+		return nil, "", models.NewAuthorizationError(err.Error())
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(player.Password), []byte(password))
+	if err != nil {
+		return nil, "", models.NewAuthorizationErrorf("invalid password")
+	}
+
+	token, err := s.createToken(player)
+	if err != nil {
+		return nil, "", models.NewGenericError(err.Error())
+	}
+	return player, token, nil
+}
+
+func (s *authenticationServiceImpl) createToken(player *models.Player) (string, error) {
 	claims := ExtendedClaims{
 		PlayerID: uuid.NullUUID{UUID: player.ID, Valid: true},
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -73,28 +100,4 @@ func (s *authenticationServiceImpl) CreateToken(player *models.Player) (string, 
 	}
 
 	return tokenString, nil
-}
-
-func (s *authenticationServiceImpl) ValidateToken(tokenString string) (*jwt.Token, error) {
-	if jwtToken, err := jwt.ParseWithClaims(tokenString, &ExtendedClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(s.config.Secret), nil
-	}); err != nil {
-		return nil, models.NewAuthorizationError(err.Error())
-	} else {
-		return jwtToken, nil
-	}
-}
-
-func (s *authenticationServiceImpl) Authenticate(ctx context.Context, login string, password string) (*models.Player, error) {
-	player, err := s.playerRepositoryFactory(s.db).GetByLogin(ctx, login)
-	if err != nil {
-		return nil, models.NewAuthorizationError(err.Error())
-	}
-
-	err = bcrypt.CompareHashAndPassword([]byte(player.Password), []byte(password))
-	if err != nil {
-		return nil, models.NewAuthorizationErrorf("invalid password")
-	}
-
-	return player, nil
 }

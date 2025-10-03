@@ -3,10 +3,9 @@ appMode: dev
 logLevel: debug
 secret: "1234567890"
 server:
-  host: localhost
-  port: 5005
+  port: ${APP_PORT}
 database:
-  host: localhost
+  host: db
   user: ${DB_USER}
   password: ${DB_PASSWORD}
   database: ${DB_DATABASE}

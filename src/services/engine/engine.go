@@ -12,15 +12,34 @@ import (
 )
 
 const (
-	defaultBoardTile byte   = '_'
-	defaultBoard     string = "_________"
-	xMark            byte   = 'X'
-	oMark            byte   = 'O'
+	DefaultBoardTile         byte   = '_'
+	DefaultBoard             string = "_________"
+	XMark                    byte   = 'X'
+	OMark                    byte   = 'O'
+	MaxRoomTitleLength       int    = 30
+	MaxRoomDescriptionLength int    = 150
+)
+
+var (
+	PlayerPartOfOtherRoomError      error = models.NewValidationError("player is part of other room")
+	TitleRequiredError              error = models.NewValidationError("title is required")
+	TitleTooLongError               error = models.NewValidationErrorf("title is too long. Max length is %d", MaxRoomTitleLength)
+	DescriptionTooLongError         error = models.NewValidationErrorf("description is too long required. Max length is %d", MaxRoomDescriptionLength)
+	FullRoomError                   error = models.NewValidationError("room is full")
+	PlayerPartOfTheRoomAsHostError  error = models.NewValidationErrorf("player is already part of the room as host")
+	PlayerPartOfTheRoomAsGuestError error = models.NewValidationErrorf("player is already part of the room as guest")
+	PlayerNotInRoomError            error = models.NewValidationErrorf("player is not part of the room")
+	GameInProgressError             error = models.NewValidationErrorf("can't creat new game. Previous game is in progress.")
+	GameCompletedError              error = models.NewValidationError("game is completed")
+	PlayerNotInTurnError            error = models.NewValidationError("player not in turn")
+	InvalidBoardPositionError       error = models.NewValidationError("invalid position index")
+	BoardPositionOcopiedError       error = models.NewValidationError("position ocopied")
 )
 
 type GameEngineService interface {
+	GetRoom(context.Context, uuid.UUID) (*models.Room, error)
 	GetOpenRooms(context.Context) ([]*models.Room, error)
-	CreateRoom(context.Context, *models.Room) (uuid.UUID, error)
+	CreateRoom(context.Context, uuid.UUID, string, string) (uuid.UUID, error)
 	PlayerJoinRoom(context.Context, uuid.UUID, uuid.UUID) error
 	PlayerLeaveRoom(context.Context, uuid.UUID, uuid.UUID) error
 	CreateGame(context.Context, uuid.UUID, uuid.UUID) (uuid.UUID, error)
@@ -30,30 +49,42 @@ type GameEngineService interface {
 }
 
 type gameEngineServiceImpl struct {
-	db *sql.DB
+	db                      *sql.DB
+	playerRepositoryFactory func(q repository.Querier) repository.PlayerRepository
+	gameRepositoryFactory   func(q repository.Querier) repository.GameRepository
+	roomRepositoryFactory   func(q repository.Querier) repository.RoomRepository
 }
 
-func NewGameEngineService(db *sql.DB) GameEngineService {
-	return &gameEngineServiceImpl{db: db}
+func NewGameEngineService(db *sql.DB,
+	playerRepositoryFactory func(q repository.Querier) repository.PlayerRepository,
+	gameRepositoryFactory func(q repository.Querier) repository.GameRepository,
+	roomRepositoryFactory func(q repository.Querier) repository.RoomRepository) GameEngineService {
+	return &gameEngineServiceImpl{
+		db:                      db,
+		playerRepositoryFactory: playerRepositoryFactory,
+		gameRepositoryFactory:   gameRepositoryFactory,
+		roomRepositoryFactory:   roomRepositoryFactory,
+	}
 }
 
-func (s *gameEngineServiceImpl) playerRepositoryFactory(q repository.Querier) repository.PlayerRepository {
-	return repository.NewPlayerRepository(q)
-}
-
-func (s *gameEngineServiceImpl) gameRepositoryFactory(q repository.Querier) repository.GameRepository {
-	return repository.NewGameRepository(q)
-}
-
-func (s *gameEngineServiceImpl) roomRepositoryFactory(q repository.Querier) repository.RoomRepository {
-	return repository.NewRoomRepository(q)
+func (g *gameEngineServiceImpl) GetRoom(ctx context.Context, playerID uuid.UUID) (*models.Room, error) {
+	return g.roomRepositoryFactory(g.db).GetByPlayerID(ctx, playerID)
 }
 
 func (g *gameEngineServiceImpl) GetOpenRooms(ctx context.Context) ([]*models.Room, error) {
 	return g.roomRepositoryFactory(g.db).GetList(ctx, models.RoomPhaseOpen)
 }
 
-func (g *gameEngineServiceImpl) CreateRoom(ctx context.Context, room *models.Room) (id uuid.UUID, err error) {
+func (g *gameEngineServiceImpl) CreateRoom(ctx context.Context, playerID uuid.UUID, title string, description string) (id uuid.UUID, err error) {
+	room := &models.Room{
+		Host: models.RoomPlayer{
+			ID:             playerID,
+			RequestNewGame: true,
+		},
+		Title:       title,
+		Description: description,
+		Phase:       models.RoomPhaseOpen,
+	}
 	roomRepository := g.roomRepositoryFactory(g.db)
 	err = g.validateCreateRoom(ctx, roomRepository, room, room.Host.ID)
 	if err != nil {
@@ -62,7 +93,7 @@ func (g *gameEngineServiceImpl) CreateRoom(ctx context.Context, room *models.Roo
 
 	id, err = roomRepository.Create(ctx, room)
 	if err != nil {
-		return uuid.Nil, nil
+		return uuid.Nil, err
 	}
 	return id, nil
 }
@@ -74,11 +105,19 @@ func (g *gameEngineServiceImpl) validateCreateRoom(ctx context.Context, roomRepo
 	}
 
 	if playerRoom != nil {
-		return models.NewValidationErrorf("player is part of other room")
+		return PlayerPartOfOtherRoomError
 	}
 
 	if room != nil && len(room.Title) == 0 {
-		return models.NewValidationErrorf("title is required")
+		return TitleRequiredError
+	}
+
+	if room != nil && len(room.Title) > MaxRoomTitleLength {
+		return TitleTooLongError
+	}
+
+	if room != nil && len(room.Description) > MaxRoomDescriptionLength {
+		return DescriptionTooLongError
 	}
 
 	return nil
@@ -119,30 +158,25 @@ func (g *gameEngineServiceImpl) PlayerJoinRoom(ctx context.Context, roomID uuid.
 }
 
 func (g *gameEngineServiceImpl) validatePlayerJoinRoom(ctx context.Context, roomRepository repository.RoomRepository, room *models.Room, playerID uuid.UUID) error {
-	if room.Guest != nil && room.Guest.ID != playerID && room.Phase == models.RoomPhaseFull {
-		return models.NewValidationError("room is full")
+	if room.Phase == models.RoomPhaseFull {
+		return FullRoomError
 	}
 
 	if room.Host.ID == playerID {
-		return models.NewValidationErrorf("player is already part of the room as host")
+		return PlayerPartOfTheRoomAsHostError
 	}
 
 	if room.Guest != nil && room.Guest.ID == playerID {
-		return models.NewValidationErrorf("player is already part of the room as guest")
+		return PlayerPartOfTheRoomAsGuestError
 	}
 
-	playerRoom, err := roomRepository.GetByPlayerID(ctx, playerID)
-	if err != nil {
-		if models.IsNotFoundError(err) {
-			return nil
-		}
+	if _, err := roomRepository.GetByPlayerID(ctx, playerID); err == nil {
+		return PlayerPartOfOtherRoomError
+	} else if models.IsNotFoundError(err) {
+		return nil
+	} else {
 		return err
 	}
-	if playerRoom != nil {
-		return models.NewValidationErrorf("player is part of other room")
-	}
-
-	return nil
 }
 
 func (g *gameEngineServiceImpl) PlayerLeaveRoom(ctx context.Context, roomID uuid.UUID, playerID uuid.UUID) (err error) {
@@ -232,7 +266,7 @@ func (g *gameEngineServiceImpl) PlayerLeaveRoom(ctx context.Context, roomID uuid
 func (g *gameEngineServiceImpl) validatePlayerLeaveRoom(room *models.Room, playerID uuid.UUID) error {
 	if room.Host.ID != playerID &&
 		(room.Guest == nil || room.Guest.ID != playerID) {
-		return models.NewValidationErrorf("player is not part of the room")
+		return PlayerNotInRoomError
 	}
 
 	return nil
@@ -246,8 +280,7 @@ func (g *gameEngineServiceImpl) CreateGame(ctx context.Context, roomID uuid.UUID
 			return uuid.Nil, err
 		}
 
-		gameRepository := g.gameRepositoryFactory(tx)
-		err = g.validateCreateGame(ctx, gameRepository, room, playerID)
+		err = g.validateCreateGame(ctx, room, playerID)
 		if err != nil {
 			return uuid.Nil, err
 		}
@@ -261,6 +294,7 @@ func (g *gameEngineServiceImpl) CreateGame(ctx context.Context, roomID uuid.UUID
 		}
 
 		var gameID uuid.UUID
+		gameRepository := g.gameRepositoryFactory(tx)
 		if room.Guest != nil {
 			if room.Guest.RequestNewGame && room.Host.RequestNewGame {
 				err := g.createGame(ctx, gameRepository, room)
@@ -280,22 +314,12 @@ func (g *gameEngineServiceImpl) CreateGame(ctx context.Context, roomID uuid.UUID
 	})
 }
 
-func (g *gameEngineServiceImpl) validateCreateGame(ctx context.Context, gameRepository repository.GameRepository, room *models.Room, playerID uuid.UUID) error {
+func (g *gameEngineServiceImpl) validateCreateGame(ctx context.Context, room *models.Room, playerID uuid.UUID) error {
 	if room.Host.ID != playerID &&
 		(room.Guest == nil || room.Guest.ID != playerID) {
-		return models.NewValidationErrorf("player is not part of the room")
+		return PlayerNotInRoomError
 	}
 
-	if room.GameID != nil {
-		game, err := gameRepository.Get(ctx, *room.GameID)
-		if err != nil {
-			return err
-		}
-
-		if game.Phase == models.GamePhaseInProgress {
-			return models.NewValidationErrorf("can't creat new game. Previous game is in progress.")
-		}
-	}
 	return nil
 }
 
@@ -326,7 +350,7 @@ func (g *gameEngineServiceImpl) GetGameState(ctx context.Context, roomID uuid.UU
 func (g *gameEngineServiceImpl) validateGetGameState(room *models.Room, playerID uuid.UUID) error {
 	if room.Host.ID != playerID &&
 		(room.Guest == nil || room.Guest.ID != playerID) {
-		return models.NewValidationError("player is not part of the room")
+		return PlayerNotInRoomError
 	}
 
 	return nil
@@ -362,7 +386,7 @@ func (g *gameEngineServiceImpl) PlayerMakeMove(ctx context.Context, roomID uuid.
 			game.Board = string(boardBytes)
 
 			win := g.inWinState(game)
-			if win || !strings.Contains(game.Board, string(defaultBoardTile)) {
+			if win || !strings.Contains(game.Board, string(DefaultBoardTile)) {
 				playerRepository := g.playerRepositoryFactory(tx)
 				host, err := playerRepository.Get(ctx, room.Host.ID)
 				if err != nil {
@@ -413,6 +437,29 @@ func (g *gameEngineServiceImpl) PlayerMakeMove(ctx context.Context, roomID uuid.
 	})
 }
 
+func (g *gameEngineServiceImpl) validatePlayerMakeMove(game *models.Game, playerID uuid.UUID, position int) error {
+	if game.Host.ID != playerID && game.Guest.ID != playerID {
+		return PlayerNotInRoomError
+	}
+
+	if game.Phase == models.GamePhaseCompleted {
+		return GameCompletedError
+	}
+
+	if game.CurrentPlayerID != playerID {
+		return PlayerNotInTurnError
+	}
+
+	if position < 1 || position > len(DefaultBoard) {
+		return InvalidBoardPositionError
+	}
+	if game.Board[position-1] != DefaultBoardTile {
+		return BoardPositionOcopiedError
+	}
+
+	return nil
+}
+
 func (g *gameEngineServiceImpl) GetRanking(ctx context.Context) ([]*models.Player, error) {
 	playerRepository := g.playerRepositoryFactory(g.db)
 	players, err := playerRepository.GetRanking(ctx)
@@ -423,30 +470,8 @@ func (g *gameEngineServiceImpl) GetRanking(ctx context.Context) ([]*models.Playe
 	return players, nil
 }
 
-func (g *gameEngineServiceImpl) validatePlayerMakeMove(game *models.Game, playerID uuid.UUID, position int) error {
-	if game.Host.ID != playerID && game.Guest.ID != playerID {
-		return models.NewValidationError("player is not part of the game")
-	}
-
-	if game.Phase == models.GamePhaseCompleted {
-		return models.NewValidationError("game is completed")
-	}
-
-	if game.CurrentPlayerID != playerID {
-		return models.NewValidationError("player not in turn")
-	}
-
-	if position < 1 || position > len(defaultBoard) {
-		return models.NewValidationError("invalid position index")
-	}
-	if game.Board[position-1] != defaultBoardTile {
-		return models.NewValidationError("position ocopied")
-	}
-
-	return nil
-}
-
 func (g *gameEngineServiceImpl) createGame(ctx context.Context, gameRepository repository.GameRepository, room *models.Room) error {
+
 	game, err := g.initializeGame(ctx, gameRepository, room)
 	if err != nil {
 		return err
@@ -463,7 +488,7 @@ func (g *gameEngineServiceImpl) createGame(ctx context.Context, gameRepository r
 }
 
 func (g *gameEngineServiceImpl) initializeGame(ctx context.Context, gameRepository repository.GameRepository, room *models.Room) (*models.Game, error) {
-	marks := []byte{xMark, oMark}
+	marks := []byte{XMark, OMark}
 	rand.Shuffle(len(marks), func(i, j int) {
 		marks[i], marks[j] = marks[j], marks[i]
 	})
@@ -473,7 +498,7 @@ func (g *gameEngineServiceImpl) initializeGame(ctx context.Context, gameReposito
 		Host:            models.GamePlayer{ID: room.Host.ID, Mark: string(marks[0])},
 		Guest:           models.GamePlayer{ID: room.Guest.ID, Mark: string(marks[1])},
 		CurrentPlayerID: playerIDs[rand.IntN(2)],
-		Board:           defaultBoard,
+		Board:           DefaultBoard,
 		Phase:           models.GamePhaseInProgress,
 	}
 
@@ -481,6 +506,10 @@ func (g *gameEngineServiceImpl) initializeGame(ctx context.Context, gameReposito
 		prevGame, err := gameRepository.Get(ctx, *room.GameID)
 		if err != nil {
 			return nil, err
+		}
+
+		if prevGame.Phase == models.GamePhaseInProgress {
+			return nil, GameInProgressError
 		}
 
 		if prevGame.Host.ID == room.Host.ID && prevGame.Guest.ID == room.Guest.ID {
@@ -499,16 +528,16 @@ func (g *gameEngineServiceImpl) initializeGame(ctx context.Context, gameReposito
 
 func (g *gameEngineServiceImpl) inWinState(game *models.Game) bool {
 
-	if (game.Board[0] != defaultBoardTile && game.Board[0] == game.Board[1] && game.Board[0] == game.Board[2]) ||
-		(game.Board[3] != defaultBoardTile && game.Board[3] == game.Board[4] && game.Board[3] == game.Board[5]) ||
-		(game.Board[6] != defaultBoardTile && game.Board[6] == game.Board[7] && game.Board[6] == game.Board[8]) ||
+	if (game.Board[0] != DefaultBoardTile && game.Board[0] == game.Board[1] && game.Board[0] == game.Board[2]) ||
+		(game.Board[3] != DefaultBoardTile && game.Board[3] == game.Board[4] && game.Board[3] == game.Board[5]) ||
+		(game.Board[6] != DefaultBoardTile && game.Board[6] == game.Board[7] && game.Board[6] == game.Board[8]) ||
 
-		(game.Board[0] != defaultBoardTile && game.Board[0] == game.Board[3] && game.Board[0] == game.Board[6]) ||
-		(game.Board[1] != defaultBoardTile && game.Board[1] == game.Board[4] && game.Board[1] == game.Board[7]) ||
-		(game.Board[2] != defaultBoardTile && game.Board[2] == game.Board[5] && game.Board[2] == game.Board[8]) ||
+		(game.Board[0] != DefaultBoardTile && game.Board[0] == game.Board[3] && game.Board[0] == game.Board[6]) ||
+		(game.Board[1] != DefaultBoardTile && game.Board[1] == game.Board[4] && game.Board[1] == game.Board[7]) ||
+		(game.Board[2] != DefaultBoardTile && game.Board[2] == game.Board[5] && game.Board[2] == game.Board[8]) ||
 
-		(game.Board[0] != defaultBoardTile && game.Board[0] == game.Board[4] && game.Board[0] == game.Board[8]) ||
-		(game.Board[2] != defaultBoardTile && game.Board[2] == game.Board[4] && game.Board[2] == game.Board[6]) {
+		(game.Board[0] != DefaultBoardTile && game.Board[0] == game.Board[4] && game.Board[0] == game.Board[8]) ||
+		(game.Board[2] != DefaultBoardTile && game.Board[2] == game.Board[4] && game.Board[2] == game.Board[6]) {
 		return true
 	}
 
