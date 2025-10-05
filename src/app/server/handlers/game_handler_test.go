@@ -124,6 +124,7 @@ var _ = Describe("GameHandler", func() {
 			Expect(err).To(BeNil())
 			request, err := http.NewRequest("POST", "/rooms", bytes.NewBuffer(requestBody))
 			Expect(err).To(BeNil())
+			request.Header.Set("Content-Type", "application/json")
 			handler := handlers.CreateRoomHandler(mockGameEngineService)
 			router.POST("/rooms", handler)
 			response := httptest.NewRecorder()
@@ -167,7 +168,7 @@ var _ = Describe("GameHandler", func() {
 			router.Use(insertPlayerIDInContextMiddleware(playerID))
 			handler := handlers.CreateRoomHandler(mockGameEngineService)
 			router.POST("/rooms", handler)
-			mockGameEngineService.On("CreateRoom", mock.Anything, mock.Anything).Return(nil, models.NewGenericError("server error"))
+			mockGameEngineService.On("CreateRoom", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, models.NewGenericError("server error"))
 			response := httptest.NewRecorder()
 			router.ServeHTTP(response, request)
 
@@ -531,24 +532,40 @@ var _ = Describe("GameHandler", func() {
 	Context("GetRankingHandler", func() {
 
 		It("should return 200 if request is OK", func() {
-			request, err := http.NewRequest("GET", "/ranking", nil)
+			rankingRequest := models.RankingRequest{
+				PageInfo: models.PageInfo{
+					Page:     1,
+					PageSize: 10,
+				},
+			}
+			requestBody, err := json.Marshal(rankingRequest)
+			Expect(err).To(BeNil())
+			request, err := http.NewRequest("GET", "/ranking", bytes.NewBuffer(requestBody))
 			Expect(err).To(BeNil())
 			request.Header.Set("Content-Type", "application/json")
 			handler := handlers.GetRankingHandler(mockGameEngineService)
 			router.GET("/ranking", handler)
-			mockGameEngineService.On("GetRanking", mock.Anything).Return([]*models.Player{}, nil)
+			mockGameEngineService.On("GetRanking", mock.Anything, mock.Anything, mock.Anything).Return([]*models.Player{}, 1, 1, 1, nil)
 			response := httptest.NewRecorder()
 			router.ServeHTTP(response, request)
 			Expect(response.Code).To(Equal(http.StatusOK))
 		})
 
 		It("should return 500 if server error occurs", func() {
-			request, err := http.NewRequest("GET", "/ranking", nil)
+			rankingRequest := models.RankingRequest{
+				PageInfo: models.PageInfo{
+					Page:     1,
+					PageSize: 10,
+				},
+			}
+			requestBody, err := json.Marshal(rankingRequest)
+			Expect(err).To(BeNil())
+			request, err := http.NewRequest("GET", "/ranking", bytes.NewBuffer(requestBody))
 			Expect(err).To(BeNil())
 			request.Header.Set("Content-Type", "application/json")
 			handler := handlers.GetRankingHandler(mockGameEngineService)
 			router.GET("/ranking", handler)
-			mockGameEngineService.On("GetRanking", mock.Anything).Return(nil, models.NewGenericError("server error"))
+			mockGameEngineService.On("GetRanking", mock.Anything, mock.Anything, mock.Anything).Return(nil, 0, 0, 0, models.NewGenericError("server error"))
 			response := httptest.NewRecorder()
 			router.ServeHTTP(response, request)
 			Expect(response.Code).To(Equal(http.StatusInternalServerError))

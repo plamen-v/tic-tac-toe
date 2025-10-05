@@ -59,10 +59,17 @@ func (m *MockGameEngineService) PlayerMakeMove(ctx context.Context, roomID uuid.
 	args := m.Called(ctx, roomID, playerID, position)
 	return args.Error(0)
 }
-func (m *MockGameEngineService) GetRanking(ctx context.Context) ([]*models.Player, error) {
+func (m *MockGameEngineService) GetRanking(ctx context.Context, pageSize int, page int) ([]*models.Player, int, int, int, error) {
 	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
+
+	players, okPlayers := args.Get(0).([]*models.Player)
+	pageSize, okPageSize := args.Get(1).(int)
+	page, okPage := args.Get(2).(int)
+	total, okTotal := args.Get(3).(int)
+
+	if players == nil || !okPlayers || !okPageSize || !okPage || !okTotal {
+		return nil, 0, 0, 0, args.Error(4)
 	}
-	return args.Get(0).([]*models.Player), args.Error(1)
+
+	return players, pageSize, page, total, args.Error(4)
 }

@@ -46,7 +46,7 @@ type GameEngineService interface {
 	CreateGame(context.Context, uuid.UUID, uuid.UUID) (uuid.UUID, error)
 	GetGameState(context.Context, uuid.UUID, uuid.UUID) (*models.Game, error)
 	PlayerMakeMove(context.Context, uuid.UUID, uuid.UUID, int) error
-	GetRanking(context.Context) ([]*models.Player, error)
+	GetRanking(context.Context, int, int) ([]*models.Player, int, int, int, error)
 }
 
 type gameEngineServiceImpl struct {
@@ -462,14 +462,14 @@ func (g *gameEngineServiceImpl) validatePlayerMakeMove(game *models.Game, player
 	return nil
 }
 
-func (g *gameEngineServiceImpl) GetRanking(ctx context.Context) ([]*models.Player, error) {
+func (g *gameEngineServiceImpl) GetRanking(ctx context.Context, pageSize int, page int) ([]*models.Player, int, int, int, error) {
 	playerRepository := g.playerRepositoryFactory(g.db)
-	players, err := playerRepository.GetRanking(ctx)
+	players, pageSize, page, total, err := playerRepository.GetRanking(ctx, pageSize, page)
 	if err != nil {
-		return nil, err
+		return nil, 0, 0, 0, err
 	}
 
-	return players, nil
+	return players, pageSize, page, total, nil
 }
 
 func (g *gameEngineServiceImpl) createGame(ctx context.Context, gameRepository repository.GameRepository, room *models.Room) error {

@@ -124,7 +124,7 @@ type PlayerRepository interface {
 	Get(context.Context, uuid.UUID) (*models.Player, error)
 	GetByLogin(context.Context, string) (*models.Player, error)
 	UpdateStats(context.Context, *models.Player) error
-	GetRanking(context.Context) ([]*models.Player, error)
+	GetRanking(context.Context, int, int) ([]*models.Player, int, int, int, error)
 }
 
 func NewPlayerRepository(db Querier) PlayerRepository {
@@ -203,16 +203,40 @@ func (r *playerRepositoryImpl) UpdateStats(ctx context.Context, player *models.P
 	return err
 }
 
-func (r *playerRepositoryImpl) GetRanking(ctx context.Context) ([]*models.Player, error) {
+func (r *playerRepositoryImpl) GetRanking(ctx context.Context, page int, pageSize int) ([]*models.Player, int, int, int, error) {
 	sqlStr := `
-		SELECT p.id, p.nickname, ps.wins, ps.losses, ps.draws
+		SELECT COUNT(*)
 		FROM players AS p
 		LEFT JOIN players_stats ps ON ps.player_id = p.id
 		ORDER BY ps.wins DESC, ps.draws DESC, ps.losses ASC
 		`
-	rows, err := r.db.QueryContext(ctx, sqlStr)
+
+	totalCnt := 0
+	row := r.db.QueryRowContext(ctx, sqlStr)
+	err := row.Scan(&totalCnt)
 	if err != nil {
-		return nil, models.NewGenericError(err.Error())
+		return nil, 0, 0, 0, models.NewGenericError(err.Error())
+	}
+
+	lastPage := totalCnt/pageSize + 1
+	if page > lastPage {
+		page = lastPage
+	}
+
+	limit := pageSize
+	offset := (page - 1) * pageSize
+
+	sqlStr = `
+		SELECT p.id, p.nickname, ps.wins, ps.losses, ps.draws
+		FROM players AS p
+		LEFT JOIN players_stats ps ON ps.player_id = p.id
+		ORDER BY ps.wins DESC, ps.draws DESC, ps.losses ASC
+		LIMIT $1 OFFSET $2
+		`
+
+	rows, err := r.db.QueryContext(ctx, sqlStr, limit, offset)
+	if err != nil {
+		return nil, 0, 0, 0, models.NewGenericError(err.Error())
 	}
 	defer rows.Close()
 
@@ -221,16 +245,16 @@ func (r *playerRepositoryImpl) GetRanking(ctx context.Context) ([]*models.Player
 		player := &models.Player{}
 		err := rows.Scan(&player.ID, &player.Nickname, &player.Stats.Wins, &player.Stats.Losses, &player.Stats.Draws)
 		if err != nil {
-			return nil, models.NewGenericError(err.Error())
+			return nil, 0, 0, 0, models.NewGenericError(err.Error())
 		}
 		players = append(players, player)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, models.NewGenericError(err.Error())
+		return nil, 0, 0, 0, models.NewGenericError(err.Error())
 	}
 
-	return players, nil
+	return players, pageSize, page, totalCnt, nil
 }
 
 type RoomRepository interface {

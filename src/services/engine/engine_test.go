@@ -213,9 +213,9 @@ var _ = Describe("GameEngine", func() {
 
 			mockPlayerRepository.
 				On("GetRanking", ctx).
-				Return(expectedRanking, nil)
+				Return(expectedRanking, 1, 1, 1, nil)
 
-			ranking, err := gameEngineService.GetRanking(ctx)
+			ranking, _, _, _, err := gameEngineService.GetRanking(ctx, 1, 1)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(ranking)).To(Equal(len(expectedRanking)))
 			for i := 0; i < len(expectedRanking); i++ {

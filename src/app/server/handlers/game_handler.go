@@ -224,14 +224,26 @@ func MakeMoveHandler(gameEngineService engine.GameEngineService) func(*gin.Conte
 
 func GetRankingHandler(gameEngineService engine.GameEngineService) func(*gin.Context) {
 	return func(c *gin.Context) {
-		players, err := gameEngineService.GetRanking(c.Request.Context())
+		var request models.RankingRequest
+		var err error
+		if err = c.BindJSON(&request); err != nil {
+			_ = c.Error(models.NewValidationError("bad request"))
+			return
+		}
+
+		players, pageSize, page, total, err := gameEngineService.GetRanking(c.Request.Context(), request.PageInfo.PageSize, request.PageInfo.Page)
 		if err != nil {
 			_ = c.Error(err)
 			return
 		}
 
-		response := models.RankResponse{
+		response := models.RankingResponse{
 			Players: players,
+			PageInfo: models.PageInfo{
+				Page:     page,
+				PageSize: pageSize,
+				TotalCnt: total,
+			},
 		}
 
 		c.JSON(http.StatusOK, response)
