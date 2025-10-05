@@ -81,7 +81,7 @@ var _ = Describe("GameHandler", func() {
 			request, err := http.NewRequest("GET", "/rooms", nil)
 			Expect(err).To(BeNil())
 			response := httptest.NewRecorder()
-			mockGameEngineService.On("GetOpenRooms", mock.Anything, mock.Anything).Return([]*models.Room{}, nil)
+			mockGameEngineService.On("GetOpenRooms", mock.Anything, mock.Anything, mock.Anything).Return([]*models.Room{}, 1, 1, 1, nil)
 			handler := handlers.GetOpenRoomsHandler(mockGameEngineService)
 			router.GET("/rooms", handler)
 			router.ServeHTTP(response, request)
@@ -94,7 +94,7 @@ var _ = Describe("GameHandler", func() {
 			Expect(err).To(BeNil())
 			handler := handlers.GetOpenRoomsHandler(mockGameEngineService)
 			router.GET("/rooms", handler)
-			mockGameEngineService.On("GetOpenRooms", mock.Anything).Return(nil, models.NewGenericError("server error"))
+			mockGameEngineService.On("GetOpenRooms", mock.Anything, mock.Anything, mock.Anything).Return(nil, 0, 0, 0, models.NewGenericError("server error"))
 			response := httptest.NewRecorder()
 			router.ServeHTTP(response, request)
 
@@ -532,15 +532,7 @@ var _ = Describe("GameHandler", func() {
 	Context("GetRankingHandler", func() {
 
 		It("should return 200 if request is OK", func() {
-			rankingRequest := models.RankingRequest{
-				PageInfo: models.PageInfo{
-					Page:     1,
-					PageSize: 10,
-				},
-			}
-			requestBody, err := json.Marshal(rankingRequest)
-			Expect(err).To(BeNil())
-			request, err := http.NewRequest("GET", "/ranking", bytes.NewBuffer(requestBody))
+			request, err := http.NewRequest("GET", "/ranking", nil)
 			Expect(err).To(BeNil())
 			request.Header.Set("Content-Type", "application/json")
 			handler := handlers.GetRankingHandler(mockGameEngineService)
@@ -552,15 +544,7 @@ var _ = Describe("GameHandler", func() {
 		})
 
 		It("should return 500 if server error occurs", func() {
-			rankingRequest := models.RankingRequest{
-				PageInfo: models.PageInfo{
-					Page:     1,
-					PageSize: 10,
-				},
-			}
-			requestBody, err := json.Marshal(rankingRequest)
-			Expect(err).To(BeNil())
-			request, err := http.NewRequest("GET", "/ranking", bytes.NewBuffer(requestBody))
+			request, err := http.NewRequest("GET", "/ranking", nil)
 			Expect(err).To(BeNil())
 			request.Header.Set("Content-Type", "application/json")
 			handler := handlers.GetRankingHandler(mockGameEngineService)

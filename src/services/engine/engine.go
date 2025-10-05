@@ -17,6 +17,7 @@ const (
 	DefaultBoard             string = "_________"
 	XMark                    byte   = 'X'
 	OMark                    byte   = 'O'
+	DefaultPageSize          int    = 10
 	MaxRoomTitleLength       int    = 30
 	MaxRoomDescriptionLength int    = 150
 )
@@ -39,7 +40,7 @@ var (
 
 type GameEngineService interface {
 	GetRoom(context.Context, uuid.UUID) (*models.Room, error)
-	GetOpenRooms(context.Context) ([]*models.Room, error)
+	GetOpenRooms(context.Context, int, int) ([]*models.Room, int, int, int, error)
 	CreateRoom(context.Context, uuid.UUID, string, string) (uuid.UUID, error)
 	PlayerJoinRoom(context.Context, uuid.UUID, uuid.UUID) error
 	PlayerLeaveRoom(context.Context, uuid.UUID, uuid.UUID) error
@@ -72,8 +73,8 @@ func (g *gameEngineServiceImpl) GetRoom(ctx context.Context, playerID uuid.UUID)
 	return g.roomRepositoryFactory(g.db).GetByPlayerID(ctx, playerID)
 }
 
-func (g *gameEngineServiceImpl) GetOpenRooms(ctx context.Context) ([]*models.Room, error) {
-	return g.roomRepositoryFactory(g.db).GetList(ctx, models.RoomPhaseOpen)
+func (g *gameEngineServiceImpl) GetOpenRooms(ctx context.Context, pageSize int, page int) ([]*models.Room, int, int, int, error) {
+	return g.roomRepositoryFactory(g.db).GetList(ctx, models.RoomPhaseOpen, pageSize, page)
 }
 
 func (g *gameEngineServiceImpl) CreateRoom(ctx context.Context, playerID uuid.UUID, title string, description string) (id uuid.UUID, err error) {

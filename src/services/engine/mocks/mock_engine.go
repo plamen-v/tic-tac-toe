@@ -19,12 +19,19 @@ func (m *MockGameEngineService) GetRoom(ctx context.Context, playerID uuid.UUID)
 	}
 	return args.Get(0).(*models.Room), args.Error(1)
 }
-func (m *MockGameEngineService) GetOpenRooms(ctx context.Context) ([]*models.Room, error) {
+func (m *MockGameEngineService) GetOpenRooms(ctx context.Context, pPageSize int, pPage int) ([]*models.Room, int, int, int, error) {
 	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
+
+	rooms, okRooms := args.Get(0).([]*models.Room)
+	pageSize, okPageSize := args.Get(1).(int)
+	page, okPage := args.Get(2).(int)
+	total, okTotal := args.Get(3).(int)
+
+	if rooms == nil || !okRooms || !okPageSize || !okPage || !okTotal {
+		return nil, 0, 0, 0, args.Error(4)
 	}
-	return args.Get(0).([]*models.Room), args.Error(1)
+
+	return rooms, pageSize, page, total, args.Error(4)
 }
 func (m *MockGameEngineService) CreateRoom(ctx context.Context, playerID uuid.UUID, title string, description string) (uuid.UUID, error) {
 	args := m.Called(ctx, playerID, title, description)

@@ -88,9 +88,9 @@ var _ = Describe("GameEngine", func() {
 			}
 
 			mockRoomRepository.
-				On("GetList", ctx, models.RoomPhaseOpen).
-				Return(expectedRooms, nil)
-			rooms, err := gameEngineService.GetOpenRooms(ctx)
+				On("GetList", ctx, models.RoomPhaseOpen, tmock.Anything, tmock.Anything).
+				Return(expectedRooms, 1, 1, 1, nil)
+			rooms, _, _, _, err := gameEngineService.GetOpenRooms(ctx, 1, 1)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(rooms)).To(Equal(len(expectedRooms)))

@@ -36,7 +36,19 @@ func GetRoomHandler(gameEngineService engine.GameEngineService) func(*gin.Contex
 
 func GetOpenRoomsHandler(gameEngineService engine.GameEngineService) func(*gin.Context) {
 	return func(c *gin.Context) {
-		rooms, err := gameEngineService.GetOpenRooms(c.Request.Context())
+		pageStr := c.Query("page")
+		page, err := strconv.Atoi(pageStr)
+		if err != nil {
+			page = 1
+		}
+
+		pageSizeStr := c.Query("pageSize")
+		pageSize, err := strconv.Atoi(pageSizeStr)
+		if err != nil {
+			pageSize = engine.DefaultPageSize
+		}
+
+		rooms, pageSize, page, total, err := gameEngineService.GetOpenRooms(c.Request.Context(), pageSize, page)
 		if err != nil {
 			_ = c.Error(err)
 			return
@@ -44,6 +56,11 @@ func GetOpenRoomsHandler(gameEngineService engine.GameEngineService) func(*gin.C
 
 		response := models.RoomListResponse{
 			Rooms: rooms,
+			PageInfo: models.PageInfo{
+				Page:     page,
+				PageSize: pageSize,
+				TotalCnt: total,
+			},
 		}
 
 		c.JSON(http.StatusOK, response)
@@ -224,14 +241,19 @@ func MakeMoveHandler(gameEngineService engine.GameEngineService) func(*gin.Conte
 
 func GetRankingHandler(gameEngineService engine.GameEngineService) func(*gin.Context) {
 	return func(c *gin.Context) {
-		var request models.RankingRequest
-		var err error
-		if err = c.BindJSON(&request); err != nil {
-			_ = c.Error(models.NewValidationError("bad request"))
-			return
+		pageStr := c.Query("page")
+		page, err := strconv.Atoi(pageStr)
+		if err != nil {
+			page = 1
 		}
 
-		players, pageSize, page, total, err := gameEngineService.GetRanking(c.Request.Context(), request.PageInfo.PageSize, request.PageInfo.Page)
+		pageSizeStr := c.Query("pageSize")
+		pageSize, err := strconv.Atoi(pageSizeStr)
+		if err != nil {
+			pageSize = engine.DefaultPageSize
+		}
+
+		players, pageSize, page, total, err := gameEngineService.GetRanking(c.Request.Context(), pageSize, page)
 		if err != nil {
 			_ = c.Error(err)
 			return

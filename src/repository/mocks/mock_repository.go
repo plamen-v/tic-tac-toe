@@ -93,12 +93,18 @@ func (m *MockRoomRepository) GetByPlayerID(ctx context.Context, playerID uuid.UU
 	return args.Get(0).(*models.Room), args.Error(1)
 }
 
-func (m *MockRoomRepository) GetList(ctx context.Context, phase models.RoomPhase) ([]*models.Room, error) {
+func (m *MockRoomRepository) GetList(ctx context.Context, phase models.RoomPhase, pPageSize, pPage int) ([]*models.Room, int, int, int, error) {
 	args := m.Called(ctx, phase)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
+	rooms, okPlayers := args.Get(0).([]*models.Room)
+	pageSize, okPageSize := args.Get(1).(int)
+	page, okPage := args.Get(2).(int)
+	total, okTotal := args.Get(3).(int)
+
+	if rooms == nil || !okPlayers || !okPageSize || !okPage || !okTotal {
+		return nil, 0, 0, 0, args.Error(4)
 	}
-	return args.Get(0).([]*models.Room), args.Error(1)
+
+	return rooms, pageSize, page, total, args.Error(4)
 }
 
 func (m *MockRoomRepository) Create(ctx context.Context, room *models.Room) (uuid.UUID, error) {

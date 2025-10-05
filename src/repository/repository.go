@@ -260,7 +260,7 @@ func (r *playerRepositoryImpl) GetRanking(ctx context.Context, page int, pageSiz
 type RoomRepository interface {
 	Get(context.Context, uuid.UUID, bool) (*models.Room, error)
 	GetByPlayerID(context.Context, uuid.UUID) (*models.Room, error)
-	GetList(context.Context, models.RoomPhase) ([]*models.Room, error)
+	GetList(context.Context, models.RoomPhase, int, int) ([]*models.Room, int, int, int, error)
 	Create(context.Context, *models.Room) (uuid.UUID, error)
 	Update(context.Context, *models.Room) error
 	Delete(context.Context, uuid.UUID) error
@@ -427,8 +427,29 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID uuid.UU
 	return room, nil
 }
 
-func (r *roomRepositoryImpl) GetList(ctx context.Context, phase models.RoomPhase) ([]*models.Room, error) {
+func (r *roomRepositoryImpl) GetList(ctx context.Context, phase models.RoomPhase, pageSize int, page int) ([]*models.Room, int, int, int, error) {
 	sqlStr := `
+		SELECT COUNT(*)c
+		FROM rooms AS r
+		INNER JOIN players AS ph ON ph.id = r.host_id
+		WHERE (r.phase = $1)
+		`
+	totalCnt := 0
+	row := r.db.QueryRowContext(ctx, sqlStr)
+	err := row.Scan(&totalCnt)
+	if err != nil {
+		return nil, 0, 0, 0, models.NewGenericError(err.Error())
+	}
+
+	lastPage := totalCnt/pageSize + 1
+	if page > lastPage {
+		page = lastPage
+	}
+
+	limit := pageSize
+	offset := (page - 1) * pageSize
+
+	sqlStr = `
 		SELECT 
 			ph.id AS host_id, 
 			ph.nickname AS host_nickname,
@@ -438,10 +459,11 @@ func (r *roomRepositoryImpl) GetList(ctx context.Context, phase models.RoomPhase
 		FROM rooms AS r
 		INNER JOIN players AS ph ON ph.id = r.host_id
 		WHERE (r.phase = $1)
+		LIMIT $2 OFFSET $3
 		`
-	rows, err := r.db.QueryContext(ctx, sqlStr, phase)
+	rows, err := r.db.QueryContext(ctx, sqlStr, phase, limit, offset)
 	if err != nil {
-		return nil, models.NewGenericError(err.Error())
+		return nil, 0, 0, 0, models.NewGenericError(err.Error())
 	}
 	defer rows.Close()
 
@@ -451,7 +473,7 @@ func (r *roomRepositoryImpl) GetList(ctx context.Context, phase models.RoomPhase
 		room := &models.Room{}
 		err := rows.Scan(&room.Host.ID, &room.Host.Nickname, &room.Title, &sqlDescription, &room.Phase)
 		if err != nil {
-			return nil, models.NewGenericError(err.Error())
+			return nil, 0, 0, 0, models.NewGenericError(err.Error())
 		}
 
 		if sqlDescription.Valid {
@@ -462,10 +484,10 @@ func (r *roomRepositoryImpl) GetList(ctx context.Context, phase models.RoomPhase
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, models.NewGenericError(err.Error())
+		return nil, 0, 0, 0, models.NewGenericError(err.Error())
 	}
 
-	return rooms, nil
+	return rooms, pageSize, page, totalCnt, nil
 }
 
 func (r *roomRepositoryImpl) Create(ctx context.Context, room *models.Room) (uuid.UUID, error) {
