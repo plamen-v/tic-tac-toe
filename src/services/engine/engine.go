@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"math/rand/v2"
 	"strings"
 
@@ -21,19 +22,19 @@ const (
 )
 
 var (
-	PlayerPartOfOtherRoomError      error = models.NewValidationError("player is part of other room")
-	TitleRequiredError              error = models.NewValidationError("title is required")
-	TitleTooLongError               error = models.NewValidationErrorf("title is too long. Max length is %d", MaxRoomTitleLength)
-	DescriptionTooLongError         error = models.NewValidationErrorf("description is too long required. Max length is %d", MaxRoomDescriptionLength)
-	FullRoomError                   error = models.NewValidationError("room is full")
-	PlayerPartOfTheRoomAsHostError  error = models.NewValidationErrorf("player is already part of the room as host")
-	PlayerPartOfTheRoomAsGuestError error = models.NewValidationErrorf("player is already part of the room as guest")
-	PlayerNotInRoomError            error = models.NewValidationErrorf("player is not part of the room")
-	GameInProgressError             error = models.NewValidationErrorf("can't creat new game. Previous game is in progress.")
-	GameCompletedError              error = models.NewValidationError("game is completed")
-	PlayerNotInTurnError            error = models.NewValidationError("player not in turn")
-	InvalidBoardPositionError       error = models.NewValidationError("invalid position index")
-	BoardPositionOcopiedError       error = models.NewValidationError("position ocopied")
+	PlayerPartOfOtherRoomErrorMessage      string = "player is part of other room"
+	TitleRequiredErrorMessage              string = "title is required"
+	TitleTooLongErrorMessage               string = fmt.Sprintf("title is too long (max %d)", MaxRoomTitleLength)
+	DescriptionTooLongErrorMessage         string = fmt.Sprintf("description is too long (max %d)", MaxRoomDescriptionLength)
+	FullRoomErrorMessage                   string = "room is full"
+	PlayerPartOfTheRoomAsHostErrorMessage  string = "player is already part of the room as host"
+	PlayerPartOfTheRoomAsGuestErrorMessage string = "player is already part of the room as guest"
+	PlayerNotInRoomErrorMessage            string = "player is not part of the room"
+	GameInProgressErrorMessage             string = "can't creat new game. Previous game is in progress."
+	GameCompletedErrorMessage              string = "game is completed"
+	PlayerNotInTurnErrorMessage            string = "player not in turn"
+	InvalidBoardPositionErrorMessage       string = "invalid position index"
+	BoardPositionOcopiedErrorMessage       string = "position ocopied"
 )
 
 type GameEngineService interface {
@@ -105,19 +106,20 @@ func (g *gameEngineServiceImpl) validateCreateRoom(ctx context.Context, roomRepo
 	}
 
 	if playerRoom != nil {
-		return PlayerPartOfOtherRoomError
+		return models.NewValidationError(PlayerPartOfOtherRoomErrorMessage)
 	}
 
 	if room != nil && len(room.Title) == 0 {
-		return TitleRequiredError
+		//return TitleRequiredError
+		return models.NewValidationError(TitleRequiredErrorMessage)
 	}
 
 	if room != nil && len(room.Title) > MaxRoomTitleLength {
-		return TitleTooLongError
+		return models.NewValidationError(TitleTooLongErrorMessage)
 	}
 
 	if room != nil && len(room.Description) > MaxRoomDescriptionLength {
-		return DescriptionTooLongError
+		return models.NewValidationError(DescriptionTooLongErrorMessage)
 	}
 
 	return nil
@@ -159,19 +161,19 @@ func (g *gameEngineServiceImpl) PlayerJoinRoom(ctx context.Context, roomID uuid.
 
 func (g *gameEngineServiceImpl) validatePlayerJoinRoom(ctx context.Context, roomRepository repository.RoomRepository, room *models.Room, playerID uuid.UUID) error {
 	if room.Phase == models.RoomPhaseFull {
-		return FullRoomError
+		return models.NewValidationError(FullRoomErrorMessage)
 	}
 
 	if room.Host.ID == playerID {
-		return PlayerPartOfTheRoomAsHostError
+		return models.NewValidationError(PlayerPartOfTheRoomAsHostErrorMessage)
 	}
 
 	if room.Guest != nil && room.Guest.ID == playerID {
-		return PlayerPartOfTheRoomAsGuestError
+		return models.NewValidationError(PlayerPartOfTheRoomAsGuestErrorMessage)
 	}
 
 	if _, err := roomRepository.GetByPlayerID(ctx, playerID); err == nil {
-		return PlayerPartOfOtherRoomError
+		return models.NewValidationError(PlayerPartOfOtherRoomErrorMessage)
 	} else if models.IsNotFoundError(err) {
 		return nil
 	} else {
@@ -266,7 +268,7 @@ func (g *gameEngineServiceImpl) PlayerLeaveRoom(ctx context.Context, roomID uuid
 func (g *gameEngineServiceImpl) validatePlayerLeaveRoom(room *models.Room, playerID uuid.UUID) error {
 	if room.Host.ID != playerID &&
 		(room.Guest == nil || room.Guest.ID != playerID) {
-		return PlayerNotInRoomError
+		return models.NewValidationError(PlayerNotInRoomErrorMessage)
 	}
 
 	return nil
@@ -317,7 +319,7 @@ func (g *gameEngineServiceImpl) CreateGame(ctx context.Context, roomID uuid.UUID
 func (g *gameEngineServiceImpl) validateCreateGame(ctx context.Context, room *models.Room, playerID uuid.UUID) error {
 	if room.Host.ID != playerID &&
 		(room.Guest == nil || room.Guest.ID != playerID) {
-		return PlayerNotInRoomError
+		return models.NewValidationError(PlayerNotInRoomErrorMessage)
 	}
 
 	return nil
@@ -350,7 +352,7 @@ func (g *gameEngineServiceImpl) GetGameState(ctx context.Context, roomID uuid.UU
 func (g *gameEngineServiceImpl) validateGetGameState(room *models.Room, playerID uuid.UUID) error {
 	if room.Host.ID != playerID &&
 		(room.Guest == nil || room.Guest.ID != playerID) {
-		return PlayerNotInRoomError
+		return models.NewValidationError(PlayerNotInRoomErrorMessage)
 	}
 
 	return nil
@@ -439,22 +441,22 @@ func (g *gameEngineServiceImpl) PlayerMakeMove(ctx context.Context, roomID uuid.
 
 func (g *gameEngineServiceImpl) validatePlayerMakeMove(game *models.Game, playerID uuid.UUID, position int) error {
 	if game.Host.ID != playerID && game.Guest.ID != playerID {
-		return PlayerNotInRoomError
+		return models.NewValidationError(PlayerNotInRoomErrorMessage)
 	}
 
 	if game.Phase == models.GamePhaseCompleted {
-		return GameCompletedError
+		return models.NewValidationError(GameCompletedErrorMessage)
 	}
 
 	if game.CurrentPlayerID != playerID {
-		return PlayerNotInTurnError
+		return models.NewValidationError(PlayerNotInTurnErrorMessage)
 	}
 
 	if position < 1 || position > len(DefaultBoard) {
-		return InvalidBoardPositionError
+		return models.NewValidationError(InvalidBoardPositionErrorMessage)
 	}
 	if game.Board[position-1] != DefaultBoardTile {
-		return BoardPositionOcopiedError
+		return models.NewValidationError(BoardPositionOcopiedErrorMessage)
 	}
 
 	return nil
@@ -509,7 +511,7 @@ func (g *gameEngineServiceImpl) initializeGame(ctx context.Context, gameReposito
 		}
 
 		if prevGame.Phase == models.GamePhaseInProgress {
-			return nil, GameInProgressError
+			return nil, models.NewValidationError(GameInProgressErrorMessage)
 		}
 
 		if prevGame.Host.ID == room.Host.ID && prevGame.Guest.ID == room.Guest.ID {

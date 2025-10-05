@@ -193,9 +193,9 @@ var _ = Describe("GameEngine", func() {
 			Expect(err).To(BeNil())
 			_, err = gameEngineService.GetGameState(ctx, roomID, playerID)
 
-			expectedError := engine.PlayerNotInRoomError
+			expectedErrorMessage := engine.PlayerNotInRoomErrorMessage
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(expectedError))
+			Expect(err.Error()).To(Equal(expectedErrorMessage))
 			mockGameRepository.AssertExpectations(GinkgoT())
 		})
 	})
@@ -281,9 +281,9 @@ var _ = Describe("GameEngine", func() {
 
 			_, err = gameEngineService.CreateRoom(ctx, playerID, expectedRoom.Title, expectedRoom.Description)
 
-			expectedError := engine.PlayerPartOfOtherRoomError
+			expectedErrorMessage := engine.PlayerPartOfOtherRoomErrorMessage
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(expectedError))
+			Expect(err.Error()).To(Equal(expectedErrorMessage))
 			mockGameRepository.AssertExpectations(GinkgoT())
 		})
 
@@ -307,9 +307,9 @@ var _ = Describe("GameEngine", func() {
 
 			_, err = gameEngineService.CreateRoom(ctx, playerID, expectedRoom.Title, expectedRoom.Description)
 
-			expectedError := engine.TitleRequiredError
+			expectedErrorMessage := engine.TitleRequiredErrorMessage
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(expectedError))
+			Expect(err.Error()).To(Equal(expectedErrorMessage))
 			mockGameRepository.AssertExpectations(GinkgoT())
 		})
 
@@ -333,9 +333,9 @@ var _ = Describe("GameEngine", func() {
 
 			_, err = gameEngineService.CreateRoom(ctx, playerID, expectedRoom.Title, expectedRoom.Description)
 
-			expectedError := engine.TitleTooLongError
+			expectedErrorMessage := engine.TitleTooLongErrorMessage
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(expectedError))
+			Expect(err.Error()).To(Equal(expectedErrorMessage))
 			mockGameRepository.AssertExpectations(GinkgoT())
 		})
 
@@ -360,9 +360,9 @@ var _ = Describe("GameEngine", func() {
 
 			_, err = gameEngineService.CreateRoom(ctx, playerID, expectedRoom.Title, expectedRoom.Description)
 
-			expectedError := engine.DescriptionTooLongError
+			expectedErrorMessage := engine.DescriptionTooLongErrorMessage
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(expectedError))
+			Expect(err.Error()).To(Equal(expectedErrorMessage))
 			mockGameRepository.AssertExpectations(GinkgoT())
 		})
 	})
@@ -423,9 +423,9 @@ var _ = Describe("GameEngine", func() {
 
 			err = gameEngineService.PlayerJoinRoom(ctx, roomID, playerID)
 
-			expectedError := engine.FullRoomError
+			expectedErrorMessage := engine.FullRoomErrorMessage
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(expectedError))
+			Expect(err.Error()).To(Equal(expectedErrorMessage))
 			mockGameRepository.AssertExpectations(GinkgoT())
 		})
 
@@ -448,9 +448,9 @@ var _ = Describe("GameEngine", func() {
 
 			err = gameEngineService.PlayerJoinRoom(ctx, roomID, playerID)
 
-			expectedError := engine.PlayerPartOfTheRoomAsHostError
+			expectedErrorMessage := engine.PlayerPartOfTheRoomAsHostErrorMessage
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(expectedError))
+			Expect(err.Error()).To(Equal(expectedErrorMessage))
 			mockGameRepository.AssertExpectations(GinkgoT())
 		})
 
@@ -473,9 +473,9 @@ var _ = Describe("GameEngine", func() {
 
 			err = gameEngineService.PlayerJoinRoom(ctx, roomID, playerID)
 
-			expectedError := engine.PlayerPartOfTheRoomAsGuestError
+			expectedErrorMessage := engine.PlayerPartOfTheRoomAsGuestErrorMessage
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(expectedError))
+			Expect(err.Error()).To(Equal(expectedErrorMessage))
 			mockGameRepository.AssertExpectations(GinkgoT())
 		})
 
@@ -507,9 +507,9 @@ var _ = Describe("GameEngine", func() {
 
 			err = gameEngineService.PlayerJoinRoom(ctx, roomID, playerID)
 
-			expectedError := engine.PlayerPartOfOtherRoomError
+			expectedErrorMessage := engine.PlayerPartOfOtherRoomErrorMessage
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(expectedError))
+			Expect(err.Error()).To(Equal(expectedErrorMessage))
 			mockGameRepository.AssertExpectations(GinkgoT())
 		})
 
@@ -708,9 +708,9 @@ var _ = Describe("GameEngine", func() {
 
 			err = gameEngineService.PlayerLeaveRoom(ctx, roomID, playerID)
 
-			expectedError := engine.PlayerNotInRoomError
+			expectedErrorMessage := engine.PlayerNotInRoomErrorMessage
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(expectedError))
+			Expect(err.Error()).To(Equal(expectedErrorMessage))
 			mockGameRepository.AssertExpectations(GinkgoT())
 		})
 
@@ -875,9 +875,9 @@ var _ = Describe("GameEngine", func() {
 
 			_, err = gameEngineService.CreateGame(ctx, roomID, playerID)
 
-			expectedError := engine.GameInProgressError
+			expectedErrorMessage := engine.GameInProgressErrorMessage
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(expectedError))
+			Expect(err.Error()).To(Equal(expectedErrorMessage))
 			mockGameRepository.AssertExpectations(GinkgoT())
 		})
 
@@ -916,9 +916,9 @@ var _ = Describe("GameEngine", func() {
 
 			_, err = gameEngineService.CreateGame(ctx, roomID, uuid.Nil)
 
-			expectedError := engine.PlayerNotInRoomError
+			expectedErrorMessage := engine.PlayerNotInRoomErrorMessage
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(expectedError))
+			Expect(err.Error()).To(Equal(expectedErrorMessage))
 			mockGameRepository.AssertExpectations(GinkgoT())
 		})
 	})
@@ -1147,9 +1147,9 @@ var _ = Describe("GameEngine", func() {
 			position := 99
 			err = gameEngineService.PlayerMakeMove(ctx, roomID, playerID, position)
 
-			expectedError := engine.InvalidBoardPositionError
+			expectedErrorMessage := engine.InvalidBoardPositionErrorMessage
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(expectedError))
+			Expect(err.Error()).To(Equal(expectedErrorMessage))
 			mockGameRepository.AssertExpectations(GinkgoT())
 		})
 
@@ -1211,9 +1211,9 @@ var _ = Describe("GameEngine", func() {
 			position := 1
 			err = gameEngineService.PlayerMakeMove(ctx, roomID, playerID, position)
 
-			expectedError := engine.BoardPositionOcopiedError
+			expectedErrorMessage := engine.BoardPositionOcopiedErrorMessage
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(expectedError))
+			Expect(err.Error()).To(Equal(expectedErrorMessage))
 			mockGameRepository.AssertExpectations(GinkgoT())
 		})
 
@@ -1275,9 +1275,9 @@ var _ = Describe("GameEngine", func() {
 			position := 2
 			err = gameEngineService.PlayerMakeMove(ctx, roomID, playerID, position)
 
-			expectedError := engine.PlayerNotInTurnError
+			expectedErrorMessage := engine.PlayerNotInTurnErrorMessage
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(expectedError))
+			Expect(err.Error()).To(Equal(expectedErrorMessage))
 			mockGameRepository.AssertExpectations(GinkgoT())
 		})
 
@@ -1339,9 +1339,9 @@ var _ = Describe("GameEngine", func() {
 			position := 2
 			err = gameEngineService.PlayerMakeMove(ctx, roomID, playerID, position)
 
-			expectedError := engine.GameCompletedError
+			expectedErrorMessage := engine.GameCompletedErrorMessage
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(expectedError))
+			Expect(err.Error()).To(Equal(expectedErrorMessage))
 			mockGameRepository.AssertExpectations(GinkgoT())
 		})
 
@@ -1402,9 +1402,9 @@ var _ = Describe("GameEngine", func() {
 			position := 2
 			err = gameEngineService.PlayerMakeMove(ctx, roomID, uuid.Nil, position)
 
-			expectedError := engine.PlayerNotInRoomError
+			expectedErrorMessage := engine.PlayerNotInRoomErrorMessage
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(expectedError))
+			Expect(err.Error()).To(Equal(expectedErrorMessage))
 			mockGameRepository.AssertExpectations(GinkgoT())
 		})
 	})

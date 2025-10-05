@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -23,7 +24,14 @@ func Logger(l logger.LoggerService) gin.HandlerFunc {
 		}
 
 		if len(c.Errors) > 0 {
-			fields = append(fields, logger.String("errors", c.Errors.String()))
+			var allErrors []map[string]string
+			for _, e := range c.Errors {
+				allErrors = append(allErrors, map[string]string{
+					"message": e.Error(),
+					"stack":   fmt.Sprintf("%+v", e.Err),
+				})
+			}
+			fields = append(fields, logger.Any("errors", allErrors))
 			l.Error("request", fields...)
 		} else {
 			l.Info("request", fields...)

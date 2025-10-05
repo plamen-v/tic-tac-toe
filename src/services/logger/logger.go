@@ -28,6 +28,10 @@ type Field struct {
 	zapField zap.Field
 }
 
+func Any(key string, value interface{}) Field {
+	return Field{zapField: zap.Any(key, value)}
+}
+
 func String(key, value string) Field {
 	return Field{zapField: zap.String(key, value)}
 }
