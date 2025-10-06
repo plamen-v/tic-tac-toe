@@ -48,7 +48,7 @@ func GetOpenRoomsHandler(gameEngineService engine.GameEngineService) func(*gin.C
 			pageSize = engine.DefaultPageSize
 		}
 
-		rooms, pageSize, page, total, err := gameEngineService.GetOpenRooms(c.Request.Context(), pageSize, page)
+		rooms, pageSize, page, total, err := gameEngineService.GetOpenRooms(c.Request.Context(), page, pageSize)
 		if err != nil {
 			_ = c.Error(err)
 			return
@@ -253,7 +253,7 @@ func GetRankingHandler(gameEngineService engine.GameEngineService) func(*gin.Con
 			pageSize = engine.DefaultPageSize
 		}
 
-		players, pageSize, page, total, err := gameEngineService.GetRanking(c.Request.Context(), pageSize, page)
+		players, pageSize, page, total, err := gameEngineService.GetRanking(c.Request.Context(), page, pageSize)
 		if err != nil {
 			_ = c.Error(err)
 			return

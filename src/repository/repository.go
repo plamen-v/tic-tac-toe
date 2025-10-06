@@ -207,8 +207,6 @@ func (r *playerRepositoryImpl) GetRanking(ctx context.Context, page int, pageSiz
 	sqlStr := `
 		SELECT COUNT(*)
 		FROM players AS p
-		LEFT JOIN players_stats ps ON ps.player_id = p.id
-		ORDER BY ps.wins DESC, ps.draws DESC, ps.losses ASC
 		`
 
 	totalCnt := 0
@@ -230,7 +228,7 @@ func (r *playerRepositoryImpl) GetRanking(ctx context.Context, page int, pageSiz
 		SELECT p.id, p.nickname, ps.wins, ps.losses, ps.draws
 		FROM players AS p
 		LEFT JOIN players_stats ps ON ps.player_id = p.id
-		ORDER BY ps.wins DESC, ps.draws DESC, ps.losses ASC
+		ORDER BY ps.wins DESC, ps.draws DESC, ps.losses ASC, p.nickname ASC
 		LIMIT $1 OFFSET $2
 		`
 
@@ -427,15 +425,14 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID uuid.UU
 	return room, nil
 }
 
-func (r *roomRepositoryImpl) GetList(ctx context.Context, phase models.RoomPhase, pageSize int, page int) ([]*models.Room, int, int, int, error) {
+func (r *roomRepositoryImpl) GetList(ctx context.Context, phase models.RoomPhase, page int, pageSize int) ([]*models.Room, int, int, int, error) {
 	sqlStr := `
-		SELECT COUNT(*)c
+		SELECT COUNT(*)
 		FROM rooms AS r
-		INNER JOIN players AS ph ON ph.id = r.host_id
 		WHERE (r.phase = $1)
 		`
 	totalCnt := 0
-	row := r.db.QueryRowContext(ctx, sqlStr)
+	row := r.db.QueryRowContext(ctx, sqlStr, phase)
 	err := row.Scan(&totalCnt)
 	if err != nil {
 		return nil, 0, 0, 0, models.NewGenericError(err.Error())
@@ -451,6 +448,7 @@ func (r *roomRepositoryImpl) GetList(ctx context.Context, phase models.RoomPhase
 
 	sqlStr = `
 		SELECT 
+			r.id,
 			ph.id AS host_id, 
 			ph.nickname AS host_nickname,
 			r.title, 
@@ -471,7 +469,7 @@ func (r *roomRepositoryImpl) GetList(ctx context.Context, phase models.RoomPhase
 	var sqlDescription sql.NullString
 	for rows.Next() {
 		room := &models.Room{}
-		err := rows.Scan(&room.Host.ID, &room.Host.Nickname, &room.Title, &sqlDescription, &room.Phase)
+		err := rows.Scan(&room.ID, &room.Host.ID, &room.Host.Nickname, &room.Title, &sqlDescription, &room.Phase)
 		if err != nil {
 			return nil, 0, 0, 0, models.NewGenericError(err.Error())
 		}

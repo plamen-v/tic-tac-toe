@@ -73,8 +73,8 @@ func (g *gameEngineServiceImpl) GetRoom(ctx context.Context, playerID uuid.UUID)
 	return g.roomRepositoryFactory(g.db).GetByPlayerID(ctx, playerID)
 }
 
-func (g *gameEngineServiceImpl) GetOpenRooms(ctx context.Context, pageSize int, page int) ([]*models.Room, int, int, int, error) {
-	return g.roomRepositoryFactory(g.db).GetList(ctx, models.RoomPhaseOpen, pageSize, page)
+func (g *gameEngineServiceImpl) GetOpenRooms(ctx context.Context, page int, pageSize int) ([]*models.Room, int, int, int, error) {
+	return g.roomRepositoryFactory(g.db).GetList(ctx, models.RoomPhaseOpen, page, pageSize)
 }
 
 func (g *gameEngineServiceImpl) CreateRoom(ctx context.Context, playerID uuid.UUID, title string, description string) (id uuid.UUID, err error) {
@@ -463,9 +463,9 @@ func (g *gameEngineServiceImpl) validatePlayerMakeMove(game *models.Game, player
 	return nil
 }
 
-func (g *gameEngineServiceImpl) GetRanking(ctx context.Context, pageSize int, page int) ([]*models.Player, int, int, int, error) {
+func (g *gameEngineServiceImpl) GetRanking(ctx context.Context, page int, pageSize int) ([]*models.Player, int, int, int, error) {
 	playerRepository := g.playerRepositoryFactory(g.db)
-	players, pageSize, page, total, err := playerRepository.GetRanking(ctx, pageSize, page)
+	players, pageSize, page, total, err := playerRepository.GetRanking(ctx, page, pageSize)
 	if err != nil {
 		return nil, 0, 0, 0, err
 	}
