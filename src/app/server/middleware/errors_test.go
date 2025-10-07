@@ -68,7 +68,7 @@ var _ = Describe("ErrorHandler", func() {
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		Expect(err).To(BeNil())
 
-		Expect(*&resp.Code).To(Equal(string(models.NotFoundErrorCode)))
+		Expect(resp.Code).To(Equal(string(models.NotFoundErrorCode)))
 	})
 
 	It("should return ValidationError error", func() {
@@ -83,7 +83,7 @@ var _ = Describe("ErrorHandler", func() {
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		Expect(err).To(BeNil())
 
-		Expect(*&resp.Code).To(Equal(string(models.BadRequestErrorCode)))
+		Expect(resp.Code).To(Equal(string(models.BadRequestErrorCode)))
 	})
 
 	It("should return AuthorizationError error", func() {
@@ -98,7 +98,7 @@ var _ = Describe("ErrorHandler", func() {
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		Expect(err).To(BeNil())
 
-		Expect(*&resp.Code).To(Equal(string(models.UnauthorizedErrorCode)))
+		Expect(resp.Code).To(Equal(string(models.UnauthorizedErrorCode)))
 	})
 
 	It("should return GenericError error", func() {
@@ -113,7 +113,7 @@ var _ = Describe("ErrorHandler", func() {
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		Expect(err).To(BeNil())
 
-		Expect(*&resp.Message).To(Equal(string(models.InternalServerErrorMessage)))
+		Expect(resp.Message).To(Equal(string(models.InternalServerErrorMessage)))
 	})
 
 	It("should return status 500", func() {

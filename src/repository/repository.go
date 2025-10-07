@@ -216,7 +216,11 @@ func (r *playerRepositoryImpl) GetRanking(ctx context.Context, page int, pageSiz
 		return nil, 0, 0, 0, models.NewGenericError(err.Error())
 	}
 
-	lastPage := totalCnt/pageSize + 1
+	lastPage := 0
+	if pageSize <= 0 {
+		lastPage = (totalCnt + pageSize - 1) / pageSize
+	}
+
 	if page > lastPage {
 		page = lastPage
 	}
@@ -438,7 +442,11 @@ func (r *roomRepositoryImpl) GetList(ctx context.Context, phase models.RoomPhase
 		return nil, 0, 0, 0, models.NewGenericError(err.Error())
 	}
 
-	lastPage := totalCnt/pageSize + 1
+	lastPage := 0
+	if pageSize <= 0 {
+		lastPage = (totalCnt + pageSize - 1) / pageSize
+	}
+
 	if page > lastPage {
 		page = lastPage
 	}
