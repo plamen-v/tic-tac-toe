@@ -217,7 +217,7 @@ func (r *playerRepositoryImpl) GetRanking(ctx context.Context, page int, pageSiz
 	}
 
 	lastPage := 0
-	if pageSize <= 0 {
+	if pageSize > 0 {
 		lastPage = (totalCnt + pageSize - 1) / pageSize
 	}
 
@@ -443,7 +443,7 @@ func (r *roomRepositoryImpl) GetList(ctx context.Context, phase models.RoomPhase
 	}
 
 	lastPage := 0
-	if pageSize <= 0 {
+	if pageSize > 0 {
 		lastPage = (totalCnt + pageSize - 1) / pageSize
 	}
 
