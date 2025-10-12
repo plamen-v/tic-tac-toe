@@ -240,6 +240,7 @@ func (g *gameEngineServiceImpl) PlayerLeaveRoom(ctx context.Context, roomID uuid
 		}
 
 		emptyRoom := false
+		room.Phase = models.RoomPhaseOpen
 		if playerIsHost {
 			if room.Guest != nil {
 				room.Host = *room.Guest

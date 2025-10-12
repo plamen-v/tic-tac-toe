@@ -62,13 +62,13 @@ CREATE OR REPLACE FUNCTION validate_room_players()
 RETURNS trigger AS $$
 BEGIN
     IF EXISTS(
-        SELECT 1 FROM rooms WHERE host_id = NEW.guest_id
+        SELECT 1 FROM rooms WHERE host_id = NEW.guest_id AND (NEW.id IS NULL OR id != NEW.id)
     ) THEN
         RAISE EXCEPTION 'Guest % is already a host of a room', NEW.guest_id;
     END IF;
 
     IF EXISTS(
-        SELECT 1 FROM rooms WHERE guest_id = NEW.host_id
+        SELECT 1 FROM rooms WHERE guest_id = NEW.host_id AND (NEW.id IS NULL OR id != NEW.id)
     ) THEN
         RAISE EXCEPTION 'Host % is already a guest in a room', NEW.host_id;
     END IF;

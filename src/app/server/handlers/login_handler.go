@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -24,10 +23,9 @@ func LoginHandler(authService auth.AuthenticationService) func(*gin.Context) {
 			return
 		}
 
-		c.Header(auth.AUTHORIZATION_HEADER, fmt.Sprintf("%s%s", auth.AUTHORIZATION_HEADER_PREFIX, tokenStr))
-
 		response := models.LoginResponse{
 			Player: player,
+			Token:  tokenStr,
 		}
 
 		c.JSON(http.StatusOK, response)

@@ -224,6 +224,9 @@ func (r *playerRepositoryImpl) GetRanking(ctx context.Context, page int, pageSiz
 	if page > lastPage {
 		page = lastPage
 	}
+	if page < 1 {
+		page = 1
+	}
 
 	limit := pageSize
 	offset := (page - 1) * pageSize
@@ -400,7 +403,7 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID uuid.UU
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, models.NewNotFoundErrorf("plaier '%s' not participate in a room", playerID.String())
+			return nil, models.NewNotFoundErrorf("player '%s' not participate in a room", playerID.String())
 		} else {
 			return nil, models.NewGenericError(err.Error())
 		}
@@ -449,6 +452,9 @@ func (r *roomRepositoryImpl) GetList(ctx context.Context, phase models.RoomPhase
 
 	if page > lastPage {
 		page = lastPage
+	}
+	if page < 1 {
+		page = 1
 	}
 
 	limit := pageSize
