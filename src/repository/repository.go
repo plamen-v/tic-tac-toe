@@ -363,6 +363,7 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id uuid.UUID, lock bool) (
 func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID uuid.UUID) (*models.Room, error) {
 	sqlStr := `
 		SELECT 
+			r.id,
 			ph.id AS host_id, 
 			ph.nickname AS host_nickname,
 			r.host_request_new_game, 
@@ -390,6 +391,7 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID uuid.UU
 
 	room := &models.Room{}
 	err := row.Scan(
+		&room.ID,
 		&room.Host.ID,
 		&room.Host.Nickname,
 		&room.Host.RequestNewGame,
@@ -410,7 +412,7 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID uuid.UU
 	}
 
 	if sqlGuestID.Valid {
-		room.Guest = &models.RoomPlayer{}
+		room.Guest = &models.RoomPlayer{ID: sqlGameID.UUID}
 
 		if sqlGuestNickname.Valid {
 			room.Guest.Nickname = sqlGuestNickname.String
