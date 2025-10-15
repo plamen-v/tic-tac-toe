@@ -21,9 +21,9 @@ CREATE TABLE IF NOT EXISTS players_stats (
 CREATE TABLE IF NOT EXISTS rooms (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     host_id UUID NOT NULL,
-    host_request_new_game BOOLEAN NOT NULL DEFAULT false,
+    host_continue BOOLEAN NOT NULL DEFAULT false,
     guest_id UUID,
-    guest_request_new_game BOOLEAN NOT NULL DEFAULT false,
+    guest_continue BOOLEAN NOT NULL DEFAULT false,
     game_id UUID,     
     title VARCHAR(30) NOT NULL,
     description VARCHAR(150),

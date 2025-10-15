@@ -81,8 +81,8 @@ func (g *gameEngineServiceImpl) GetOpenRooms(ctx context.Context, page int, page
 func (g *gameEngineServiceImpl) CreateRoom(ctx context.Context, playerID uuid.UUID, title string, description string) (id uuid.UUID, err error) {
 	room := &models.Room{
 		Host: models.RoomPlayer{
-			ID:             playerID,
-			RequestNewGame: true,
+			ID:       playerID,
+			Continue: true,
 		},
 		Title:       title,
 		Description: description,
@@ -141,8 +141,8 @@ func (g *gameEngineServiceImpl) PlayerJoinRoom(ctx context.Context, roomID uuid.
 		}
 
 		room.Guest = &models.RoomPlayer{
-			ID:             playerID,
-			RequestNewGame: true,
+			ID:       playerID,
+			Continue: true,
 		}
 
 		gameRepository := g.gameRepositoryFactory(tx)
@@ -291,17 +291,17 @@ func (g *gameEngineServiceImpl) CreateGame(ctx context.Context, roomID uuid.UUID
 		}
 
 		if playerID == room.Host.ID {
-			room.Host.RequestNewGame = true
+			room.Host.Continue = true
 		}
 
 		if room.Guest != nil && room.Guest.ID == playerID {
-			room.Guest.RequestNewGame = true
+			room.Guest.Continue = true
 		}
 
 		var gameID uuid.UUID
 		gameRepository := g.gameRepositoryFactory(tx)
 		if room.Guest != nil {
-			if room.Guest.RequestNewGame && room.Host.RequestNewGame {
+			if room.Guest.Continue && room.Host.Continue {
 				err := g.createGame(ctx, gameRepository, room)
 				if err != nil {
 					return uuid.Nil, err
@@ -486,8 +486,8 @@ func (g *gameEngineServiceImpl) createGame(ctx context.Context, gameRepository r
 		return err
 	}
 	room.GameID = &game.ID
-	room.Host.RequestNewGame = false
-	room.Guest.RequestNewGame = false
+	room.Host.Continue = false
+	room.Guest.Continue = false
 
 	return nil
 }

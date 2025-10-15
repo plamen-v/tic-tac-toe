@@ -788,8 +788,8 @@ var _ = Describe("GameEngine", func() {
 					ID: host.ID,
 				},
 				Guest: &models.RoomPlayer{
-					ID:             guest.ID,
-					RequestNewGame: true,
+					ID:       guest.ID,
+					Continue: true,
 				},
 				GameID: &prevGame.ID,
 				Phase:  models.RoomPhaseFull,
@@ -858,8 +858,8 @@ var _ = Describe("GameEngine", func() {
 					ID: host.ID,
 				},
 				Guest: &models.RoomPlayer{
-					ID:             guest.ID,
-					RequestNewGame: true,
+					ID:       guest.ID,
+					Continue: true,
 				},
 				GameID: &prevGame.ID,
 				Phase:  models.RoomPhaseFull,
@@ -905,8 +905,8 @@ var _ = Describe("GameEngine", func() {
 					ID: host.ID,
 				},
 				Guest: &models.RoomPlayer{
-					ID:             guest.ID,
-					RequestNewGame: true,
+					ID:       guest.ID,
+					Continue: true,
 				},
 			}
 
@@ -965,8 +965,8 @@ var _ = Describe("GameEngine", func() {
 					ID: host.ID,
 				},
 				Guest: &models.RoomPlayer{
-					ID:             guest.ID,
-					RequestNewGame: true,
+					ID:       guest.ID,
+					Continue: true,
 				},
 				GameID: &game.ID,
 				Phase:  models.RoomPhaseFull,

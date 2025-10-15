@@ -217,19 +217,29 @@ func (r *playerRepositoryImpl) GetRanking(ctx context.Context, page int, pageSiz
 	}
 
 	lastPage := 0
-	if pageSize > 0 {
+	if pageSize > 0 && totalCnt > 0 {
 		lastPage = (totalCnt + pageSize - 1) / pageSize
 	}
 
-	if page > lastPage {
-		page = lastPage
-	}
-	if page < 1 {
-		page = 1
+	pageForQuery := page
+	if lastPage == 0 {
+		pageForQuery = 1
+	} else {
+		if pageForQuery < 1 {
+			pageForQuery = 1
+		} else if pageForQuery > lastPage {
+			pageForQuery = lastPage
+		}
 	}
 
 	limit := pageSize
-	offset := (page - 1) * pageSize
+	offset := (pageForQuery - 1) * pageSize
+
+	if lastPage == 0 {
+		page = 0
+	} else {
+		page = pageForQuery
+	}
 
 	sqlStr = `
 		SELECT p.id, p.nickname, ps.wins, ps.losses, ps.draws
@@ -291,10 +301,10 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id uuid.UUID, lock bool) (
 			r.id,
 			ph.id AS host_id, 
 			ph.nickname AS host_nickname,
-			r.host_request_new_game, 
+			r.host_continue, 
 			pg.id AS guest_id, 
 			pg.nickname AS guest_nickname,
-			r.guest_request_new_game,
+			r.guest_continue,
 			r.game_id, 
 			r.title, 
 			r.description, 
@@ -308,11 +318,11 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id uuid.UUID, lock bool) (
 	row := r.db.QueryRowContext(ctx, sqlStr, id)
 
 	var (
-		sqlGuestID             uuid.NullUUID
-		sqlGuestNickname       sql.NullString
-		sqlGuestRequestNewGame sql.NullBool
-		sqlGameID              uuid.NullUUID
-		sqlDescription         sql.NullString
+		sqlGuestID       uuid.NullUUID
+		sqlGuestNickname sql.NullString
+		sqlGuestContinue sql.NullBool
+		sqlGameID        uuid.NullUUID
+		sqlDescription   sql.NullString
 	)
 
 	room := &models.Room{}
@@ -320,10 +330,10 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id uuid.UUID, lock bool) (
 		&room.ID,
 		&room.Host.ID,
 		&room.Host.Nickname,
-		&room.Host.RequestNewGame,
+		&room.Host.Continue,
 		&sqlGuestID,
 		&sqlGuestNickname,
-		&sqlGuestRequestNewGame,
+		&sqlGuestContinue,
 		&sqlGameID,
 		&room.Title,
 		&sqlDescription,
@@ -344,8 +354,8 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id uuid.UUID, lock bool) (
 			room.Guest.Nickname = sqlGuestNickname.String
 		}
 
-		if sqlGuestRequestNewGame.Valid {
-			room.Guest.RequestNewGame = sqlGuestRequestNewGame.Bool
+		if sqlGuestContinue.Valid {
+			room.Guest.Continue = sqlGuestContinue.Bool
 		}
 	}
 
@@ -366,10 +376,10 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID uuid.UU
 			r.id,
 			ph.id AS host_id, 
 			ph.nickname AS host_nickname,
-			r.host_request_new_game, 
+			r.host_continue, 
 			pg.id AS guest_id, 
 			pg.nickname AS guest_nickname,
-			r.guest_request_new_game,
+			r.guest_continue,
 			r.game_id, 
 			r.title, 
 			r.description, 
@@ -382,11 +392,11 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID uuid.UU
 	row := r.db.QueryRowContext(ctx, sqlStr, playerID)
 
 	var (
-		sqlGuestID             uuid.NullUUID
-		sqlGuestNickname       sql.NullString
-		sqlGuestRequestNewGame sql.NullBool
-		sqlGameID              uuid.NullUUID
-		sqlDescription         sql.NullString
+		sqlGuestID       uuid.NullUUID
+		sqlGuestNickname sql.NullString
+		sqlGuestContinue sql.NullBool
+		sqlGameID        uuid.NullUUID
+		sqlDescription   sql.NullString
 	)
 
 	room := &models.Room{}
@@ -394,10 +404,10 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID uuid.UU
 		&room.ID,
 		&room.Host.ID,
 		&room.Host.Nickname,
-		&room.Host.RequestNewGame,
+		&room.Host.Continue,
 		&sqlGuestID,
 		&sqlGuestNickname,
-		&sqlGuestRequestNewGame,
+		&sqlGuestContinue,
 		&sqlGameID,
 		&room.Title,
 		&sqlDescription,
@@ -418,8 +428,8 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID uuid.UU
 			room.Guest.Nickname = sqlGuestNickname.String
 		}
 
-		if sqlGuestRequestNewGame.Valid {
-			room.Guest.RequestNewGame = sqlGuestRequestNewGame.Bool
+		if sqlGuestContinue.Valid {
+			room.Guest.Continue = sqlGuestContinue.Bool
 		}
 	}
 
@@ -448,19 +458,29 @@ func (r *roomRepositoryImpl) GetList(ctx context.Context, phase models.RoomPhase
 	}
 
 	lastPage := 0
-	if pageSize > 0 {
+	if pageSize > 0 && totalCnt > 0 {
 		lastPage = (totalCnt + pageSize - 1) / pageSize
 	}
 
-	if page > lastPage {
-		page = lastPage
-	}
-	if page < 1 {
-		page = 1
+	pageForQuery := page
+	if lastPage == 0 {
+		pageForQuery = 1
+	} else {
+		if pageForQuery < 1 {
+			pageForQuery = 1
+		} else if pageForQuery > lastPage {
+			pageForQuery = lastPage
+		}
 	}
 
 	limit := pageSize
-	offset := (page - 1) * pageSize
+	offset := (pageForQuery - 1) * pageSize
+
+	if lastPage == 0 {
+		page = 0
+	} else {
+		page = pageForQuery
+	}
 
 	sqlStr = `
 		SELECT 
@@ -506,12 +526,12 @@ func (r *roomRepositoryImpl) GetList(ctx context.Context, phase models.RoomPhase
 
 func (r *roomRepositoryImpl) Create(ctx context.Context, room *models.Room) (uuid.UUID, error) {
 	sqlStr := `
-		INSERT INTO rooms(host_id, host_request_new_game, title, description, phase)
+		INSERT INTO rooms(host_id, host_continue, title, description, phase)
 		VALUES($1, $2, $3, $4, $5)
 		RETURNING id
 		`
 	var id uuid.UUID
-	err := r.db.QueryRowContext(ctx, sqlStr, room.Host.ID, room.Host.RequestNewGame, room.Title, room.Description, room.Phase).Scan(&id)
+	err := r.db.QueryRowContext(ctx, sqlStr, room.Host.ID, room.Host.Continue, room.Title, room.Description, room.Phase).Scan(&id)
 	if err != nil {
 		err = models.NewGenericError(err.Error())
 	}
@@ -523,25 +543,25 @@ func (r *roomRepositoryImpl) Update(ctx context.Context, room *models.Room) erro
 	sqlStr := `
 		UPDATE rooms
 		SET host_id       		   = $2,
-			host_request_new_game  = $3,
+			host_continue          = $3,
 			guest_id       		   = $4,
-			guest_request_new_game = $5,
+			guest_continue         = $5,
 			game_id         	   = $6,
 			phase 		           = $7 
 		WHERE id     	           = $1
 		`
 	var (
-		sqlGuestID             uuid.NullUUID
-		sqlGuestRequestNewGame bool = false
+		sqlGuestID       uuid.NullUUID
+		sqlGuestContinue bool = false
 	)
 
 	if room.Guest != nil {
 		sqlGuestID.UUID = room.Guest.ID
 		sqlGuestID.Valid = true
-		sqlGuestRequestNewGame = room.Guest.RequestNewGame
+		sqlGuestContinue = room.Guest.Continue
 	}
 
-	result, err := r.db.ExecContext(ctx, sqlStr, room.ID, room.Host.ID, room.Host.RequestNewGame, sqlGuestID, sqlGuestRequestNewGame, room.GameID, room.Phase)
+	result, err := r.db.ExecContext(ctx, sqlStr, room.ID, room.Host.ID, room.Host.Continue, sqlGuestID, sqlGuestContinue, room.GameID, room.Phase)
 	if err != nil {
 		return models.NewGenericError(err.Error())
 	}
