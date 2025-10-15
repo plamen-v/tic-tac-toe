@@ -302,16 +302,24 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id uuid.UUID, lock bool) (
 			ph.id AS host_id, 
 			ph.nickname AS host_nickname,
 			r.host_continue, 
+			phs.wins AS host_wins, 
+			phs.losses AS host_losses, 
+			phs.draws AS host_draws,
 			pg.id AS guest_id, 
 			pg.nickname AS guest_nickname,
 			r.guest_continue,
+			pgs.wins AS guest_wins, 
+			pgs.losses AS guest_losses, 
+			pgs.draws AS guest_draws,
 			r.game_id, 
 			r.title, 
 			r.description, 
 			r.phase
 		FROM rooms AS r
 		INNER JOIN players AS ph ON ph.id = r.host_id
+		INNER JOIN players_stats phs ON phs.player_id = r.host_id
 		LEFT JOIN players AS pg ON pg.id = r.guest_id
+		LEFT JOIN players_stats pgs ON pgs.player_id = pg.id
 		WHERE r.id = $1
 		%s;`, lockCmd)
 
@@ -321,6 +329,9 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id uuid.UUID, lock bool) (
 		sqlGuestID       uuid.NullUUID
 		sqlGuestNickname sql.NullString
 		sqlGuestContinue sql.NullBool
+		sqlGuestWins     sql.NullInt64
+		sqlGuestLosses   sql.NullInt64
+		sqlGuestDraws    sql.NullInt64
 		sqlGameID        uuid.NullUUID
 		sqlDescription   sql.NullString
 	)
@@ -331,9 +342,15 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id uuid.UUID, lock bool) (
 		&room.Host.ID,
 		&room.Host.Nickname,
 		&room.Host.Continue,
+		&room.Host.Stats.Wins,
+		&room.Host.Stats.Losses,
+		&room.Host.Stats.Draws,
 		&sqlGuestID,
 		&sqlGuestNickname,
 		&sqlGuestContinue,
+		&sqlGuestWins,
+		&sqlGuestLosses,
+		&sqlGuestDraws,
 		&sqlGameID,
 		&room.Title,
 		&sqlDescription,
@@ -357,6 +374,18 @@ func (r *roomRepositoryImpl) Get(ctx context.Context, id uuid.UUID, lock bool) (
 		if sqlGuestContinue.Valid {
 			room.Guest.Continue = sqlGuestContinue.Bool
 		}
+
+		if sqlGuestWins.Valid {
+			room.Guest.Stats.Wins = int(sqlGuestWins.Int64)
+		}
+
+		if sqlGuestLosses.Valid {
+			room.Guest.Stats.Losses = int(sqlGuestLosses.Int64)
+		}
+
+		if sqlGuestDraws.Valid {
+			room.Guest.Stats.Draws = int(sqlGuestDraws.Int64)
+		}
 	}
 
 	if sqlGameID.Valid {
@@ -377,16 +406,24 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID uuid.UU
 			ph.id AS host_id, 
 			ph.nickname AS host_nickname,
 			r.host_continue, 
+			phs.wins AS host_wins, 
+			phs.losses AS host_losses, 
+			phs.draws AS host_draws,
 			pg.id AS guest_id, 
 			pg.nickname AS guest_nickname,
 			r.guest_continue,
+			pgs.wins AS guest_wins, 
+			pgs.losses AS guest_losses, 
+			pgs.draws AS guest_draws,
 			r.game_id, 
 			r.title, 
 			r.description, 
 			r.phase
 		FROM rooms AS r
 		INNER JOIN players AS ph ON ph.id = r.host_id
+		INNER JOIN players_stats phs ON phs.player_id = r.host_id
 		LEFT JOIN players AS pg ON pg.id = r.guest_id
+		LEFT JOIN players_stats pgs ON pgs.player_id = pg.id
 		WHERE (r.host_id = $1) OR (r.guest_id IS NOT NULL AND r.guest_id = $1)
 		`
 	row := r.db.QueryRowContext(ctx, sqlStr, playerID)
@@ -395,6 +432,9 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID uuid.UU
 		sqlGuestID       uuid.NullUUID
 		sqlGuestNickname sql.NullString
 		sqlGuestContinue sql.NullBool
+		sqlGuestWins     sql.NullInt64
+		sqlGuestLosses   sql.NullInt64
+		sqlGuestDraws    sql.NullInt64
 		sqlGameID        uuid.NullUUID
 		sqlDescription   sql.NullString
 	)
@@ -405,9 +445,15 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID uuid.UU
 		&room.Host.ID,
 		&room.Host.Nickname,
 		&room.Host.Continue,
+		&room.Host.Stats.Wins,
+		&room.Host.Stats.Losses,
+		&room.Host.Stats.Draws,
 		&sqlGuestID,
 		&sqlGuestNickname,
 		&sqlGuestContinue,
+		&sqlGuestWins,
+		&sqlGuestLosses,
+		&sqlGuestDraws,
 		&sqlGameID,
 		&room.Title,
 		&sqlDescription,
@@ -430,6 +476,18 @@ func (r *roomRepositoryImpl) GetByPlayerID(ctx context.Context, playerID uuid.UU
 
 		if sqlGuestContinue.Valid {
 			room.Guest.Continue = sqlGuestContinue.Bool
+		}
+
+		if sqlGuestWins.Valid {
+			room.Guest.Stats.Wins = int(sqlGuestWins.Int64)
+		}
+
+		if sqlGuestLosses.Valid {
+			room.Guest.Stats.Losses = int(sqlGuestLosses.Int64)
+		}
+
+		if sqlGuestDraws.Valid {
+			room.Guest.Stats.Draws = int(sqlGuestDraws.Int64)
 		}
 	}
 
