@@ -10,7 +10,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/onsi/ginkgo/v2 v2.25.3
 	github.com/onsi/gomega v1.38.2
-	github.com/plamen-v/tic-tac-toe-models v0.1.3
+	github.com/plamen-v/tic-tac-toe-models v0.1.4
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.42.0

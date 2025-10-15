@@ -12,35 +12,37 @@ func ErrorHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
 
+		var validationError *models.ValidationError
 		if len(c.Errors) > 0 {
 			err := c.Errors.Last().Err
 			var statusCode int
-			var errorCode, errorMessage string
+			var errorCode models.ErrorCode
+			var errorMessage string
 			switch {
 			case errors.As(err, new(*models.NotFoundError)):
 				statusCode = http.StatusNotFound
-				errorCode = string(models.NotFoundErrorCode)
+				errorCode = models.NotFoundErrorCode
 				errorMessage = err.Error()
-			case errors.As(err, new(*models.ValidationError)):
+			case errors.As(err, &validationError):
 				statusCode = http.StatusBadRequest
-				errorCode = string(models.BadRequestErrorCode)
+				errorCode = validationError.Code()
 				errorMessage = err.Error()
 			case errors.As(err, new(*models.AuthorizationError)):
 				statusCode = http.StatusUnauthorized
-				errorCode = string(models.UnauthorizedErrorCode)
+				errorCode = models.UnauthorizedErrorCode
 				errorMessage = models.AuthorizationErrorMessage
 			case errors.As(err, new(*models.GenericError)):
 				statusCode = http.StatusInternalServerError
-				errorCode = string(models.InternalServerErrorErrorCode)
+				errorCode = models.InternalServerErrorErrorCode
 				errorMessage = models.InternalServerErrorMessage
 			default:
 				statusCode = http.StatusInternalServerError
-				errorCode = string(models.InternalServerErrorErrorCode)
+				errorCode = models.InternalServerErrorErrorCode
 				errorMessage = models.InternalServerErrorMessage
 			}
 
 			response := models.ErrorResponse{
-				Code:    errorCode,
+				Code:    string(errorCode),
 				Message: errorMessage,
 			}
 
